@@ -37,66 +37,52 @@ log "bun: $(bun --version)"
 # repo.  If git describe fails (no tags in the submodule clone), we fall back to
 # the latest version in the opam repository.
 
-merlin_infer_version() {
-    # opam uses git-describe to version a local pin; replicate the same logic.
-    local ver
-    ver=$(git -C "$REPO_ROOT/merlin" describe --tags --abbrev=0 2>/dev/null | sed 's/^v//') \
-        || true
-    if [ -z "$ver" ]; then
-        # No tags in submodule clone (common when cloned from a local path whose
-        # remote doesn't have the tags).  Fetch tags from the real upstream.
-        log "No tags found in merlin submodule — fetching from upstream..."
-        git -C "$REPO_ROOT/merlin" remote add upstream \
-            https://github.com/ocaml/merlin.git 2>/dev/null || true
-        git -C "$REPO_ROOT/merlin" fetch --tags upstream 2>&1 | tail -3 || true
-        ver=$(git -C "$REPO_ROOT/merlin" describe --tags --abbrev=0 2>/dev/null \
-                | sed 's/^v//') || true
+# fetch_tags_if_missing REPO_DIR UPSTREAM_URL
+# Fetches tags from the upstream if the submodule clone has none.
+# Writes progress to stderr so it doesn't pollute command-substitution output.
+fetch_tags_if_missing() {
+    local dir="$1" upstream="$2"
+    if ! git -C "$dir" describe --tags --abbrev=0 &>/dev/null; then
+        echo "  No tags in $(basename "$dir") submodule — fetching from upstream..." >&2
+        git -C "$dir" remote add upstream "$upstream" 2>/dev/null || true
+        git -C "$dir" fetch --tags upstream 2>&1 | tail -3 >&2 || true
     fi
+}
+
+# infer_version REPO_DIR PACKAGE_NAME
+# Prints the version string opam should use for a pin; falls back to the latest
+# opam-registry version for PACKAGE_NAME if git describe still finds nothing.
+infer_version() {
+    local dir="$1" pkg="$2"
+    local ver
+    ver=$(git -C "$dir" describe --tags --abbrev=0 2>/dev/null | sed 's/^v//') || true
     if [ -z "$ver" ]; then
-        # Last resort: ask opam what the latest released merlin version is.
-        ver=$(opam info merlin --field=all-versions 2>/dev/null \
+        ver=$(opam info "$pkg" --field=all-versions 2>/dev/null \
                 | tr ' ' '\n' | sort -V | tail -1) || true
     fi
     echo "${ver:-dev}"
 }
 
-MERLIN_VER=$(merlin_infer_version)
-log "Pinning merlin packages from submodule at version $MERLIN_VER..."
-opam pin add merlin            "$MERLIN_VER" "$REPO_ROOT/merlin" --no-action -y
-opam pin add merlin-lib        "$MERLIN_VER" "$REPO_ROOT/merlin" --no-action -y
-opam pin add dot-merlin-reader "$MERLIN_VER" "$REPO_ROOT/merlin" --no-action -y
-opam pin add ocaml-index       "$MERLIN_VER" "$REPO_ROOT/merlin" --no-action -y \
+fetch_tags_if_missing "$REPO_ROOT/merlin"    https://github.com/ocaml/merlin.git
+fetch_tags_if_missing "$REPO_ROOT/ocaml-lsp" https://github.com/ocaml/ocaml-lsp.git
+
+MERLIN_VER=$(infer_version "$REPO_ROOT/merlin"    merlin)
+LSP_VER=$(infer_version    "$REPO_ROOT/ocaml-lsp" ocaml-lsp-server)
+
+log "Pinning merlin packages at version $MERLIN_VER..."
+# opam pin add syntax for an explicit version is PACKAGE.VERSION TARGET
+opam pin add "merlin.$MERLIN_VER"            "$REPO_ROOT/merlin" --no-action -y
+opam pin add "merlin-lib.$MERLIN_VER"        "$REPO_ROOT/merlin" --no-action -y
+opam pin add "dot-merlin-reader.$MERLIN_VER" "$REPO_ROOT/merlin" --no-action -y
+opam pin add "ocaml-index.$MERLIN_VER"       "$REPO_ROOT/merlin" --no-action -y \
     2>/dev/null || true
 
 # ── 4. Pin ocaml-lsp from submodule ───────────────────────────────────────────
-#
-# Same approach: all three packages in the ocaml-lsp repo share a version via
-# {= version} constraints, so they must be pinned identically.
 
-lsp_infer_version() {
-    local ver
-    ver=$(git -C "$REPO_ROOT/ocaml-lsp" describe --tags --abbrev=0 2>/dev/null \
-            | sed 's/^v//') || true
-    if [ -z "$ver" ]; then
-        log "No tags in ocaml-lsp submodule — fetching from upstream..."
-        git -C "$REPO_ROOT/ocaml-lsp" remote add upstream \
-            https://github.com/ocaml/ocaml-lsp.git 2>/dev/null || true
-        git -C "$REPO_ROOT/ocaml-lsp" fetch --tags upstream 2>&1 | tail -3 || true
-        ver=$(git -C "$REPO_ROOT/ocaml-lsp" describe --tags --abbrev=0 2>/dev/null \
-                | sed 's/^v//') || true
-    fi
-    if [ -z "$ver" ]; then
-        ver=$(opam info ocaml-lsp-server --field=all-versions 2>/dev/null \
-                | tr ' ' '\n' | sort -V | tail -1) || true
-    fi
-    echo "${ver:-dev}"
-}
-
-LSP_VER=$(lsp_infer_version)
-log "Pinning ocaml-lsp packages from submodule at version $LSP_VER..."
-opam pin add jsonrpc           "$LSP_VER" "$REPO_ROOT/ocaml-lsp" --no-action -y
-opam pin add lsp               "$LSP_VER" "$REPO_ROOT/ocaml-lsp" --no-action -y
-opam pin add ocaml-lsp-server  "$LSP_VER" "$REPO_ROOT/ocaml-lsp" --no-action -y
+log "Pinning ocaml-lsp packages at version $LSP_VER..."
+opam pin add "jsonrpc.$LSP_VER"          "$REPO_ROOT/ocaml-lsp" --no-action -y
+opam pin add "lsp.$LSP_VER"              "$REPO_ROOT/ocaml-lsp" --no-action -y
+opam pin add "ocaml-lsp-server.$LSP_VER" "$REPO_ROOT/ocaml-lsp" --no-action -y
 
 # ── 5. Install merlin and ocaml-lsp (provides ocamlmerlin + ocamllsp) ─────────
 
