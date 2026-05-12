@@ -139,30 +139,27 @@ else
     echo "    code --install-extension $VSIX"
 fi
 
-# ── 9. Clone the demo project (Dune repo) ─────────────────────────────────────
+# ── 9. Build .cmt files for the demo project (ocaml-lsp submodule) ────────────
+#
+# We use the ocaml-lsp source tree as the demo project: it's already present,
+# already has its dependencies installed (step 6 above), and is a good-sized
+# real OCaml codebase.  'dune build @check' generates the .cmt files that
+# ocamlgrep needs to search over.
 
-if [ ! -d "$DEMO_PROJECT_DIR/.git" ]; then
-    log "Cloning dune repo as the demo project..."
-    git clone --depth=1 https://github.com/ocaml/dune.git "$DEMO_PROJECT_DIR"
-else
-    log "Demo project already present at $DEMO_PROJECT_DIR"
-fi
-
-log "Building .cmt files in demo project (dune build @check)..."
-cd "$DEMO_PROJECT_DIR"
+log "Building .cmt files in demo project (ocaml-lsp)..."
+cd "$REPO_ROOT/ocaml-lsp"
 opam exec -- dune build @check 2>&1 | tail -10 || {
-    echo "  WARNING: dune build @check had errors (possibly missing system deps)."
-    echo "  Try 'opam install --deps-only .' in $DEMO_PROJECT_DIR"
+    echo "  WARNING: dune build @check had errors."
 }
 
 # ── Done ──────────────────────────────────────────────────────────────────────
 
 log "Setup complete!"
 echo ""
-echo "  Next: open VS Code on the demo project:"
-echo "    code $DEMO_PROJECT_DIR"
+echo "  The demo project is the ocaml-lsp source tree:"
+echo "    $REPO_ROOT/ocaml-lsp"
 echo ""
-echo "  Then open any .ml file, run the command palette, and choose:"
+echo "  Open any .ml file there, run the command palette, and choose:"
 echo "    OCaml: Search expressions with ocamlgrep"
 echo ""
 echo "  Example patterns:"

@@ -39,8 +39,8 @@ String.concat __ __        →  all String.concat calls
 
 *(Video / screenshots will be added once we have a working build.)*
 
-The demo uses the [Dune](https://github.com/ocaml/dune) build system's source
-code as the target project.
+The demo searches the [ocaml-lsp](https://github.com/ocaml/ocaml-lsp) source
+tree, which is already present as a submodule and built as part of setup.
 
 ---
 
@@ -73,10 +73,10 @@ code as the target project.
 
 3. **Open the demo project**
 
-   Once the container is ready, open the Dune project in VS Code:
+   Once the container is ready, open the ocaml-lsp source tree in VS Code:
 
    ```
-   File > Open Folder > /workspace/demo-project
+   File > Open Folder > /workspace/ocaml-lsp
    ```
 
 4. **Run the command**

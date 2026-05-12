@@ -118,13 +118,15 @@ ocamlgrep, the user sees a message suggesting an upgrade.
 
 ---
 
-## Demo Project (Dune repo)
+## Demo Project (ocaml-lsp submodule)
 
-We use `https://github.com/ocaml/dune` as the target OCaml codebase for the demo
-because it is large, well-known, and uncontroversial.
+We use the `ocaml-lsp` submodule (`/workspace/ocaml-lsp`) as the demo project.
+It is already present, its dependencies are installed by setup.sh (step 6), and
+`dune build @check` is run at the end of setup to produce the `.cmt` files that
+ocamlgrep searches over.
 
-The demo requires `.cmt` files to exist (built by `dune build @check`).
-If the Dune repo is not yet built, ocamlgrep will return no results.
+We originally planned to use the Dune repo but it requires `(lang dune 3.23)`
+which is newer than the dune installed in the container.
 
 ### Suggested demo patterns
 
