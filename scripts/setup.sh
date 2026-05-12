@@ -29,7 +29,12 @@ if ! command -v bun &>/dev/null; then
 fi
 log "bun: $(bun --version)"
 
-# ── 3. Pin merlin from submodule ───────────────────────────────────────────────
+# ── 3. Refresh opam package index ─────────────────────────────────────────────
+
+log "Updating opam package index..."
+opam update -y
+
+# ── 4. Pin merlin from submodule ───────────────────────────────────────────────
 #
 # merlin.opam declares "merlin-lib" {= version}, so all packages must be pinned
 # at the same version string.  We read the version that opam would infer for
@@ -77,7 +82,7 @@ opam pin add "dot-merlin-reader.$MERLIN_VER" "$REPO_ROOT/merlin" --no-action -y
 opam pin add "ocaml-index.$MERLIN_VER"       "$REPO_ROOT/merlin" --no-action -y \
     2>/dev/null || true
 
-# ── 4. Pin ocaml-lsp from submodule ───────────────────────────────────────────
+# ── 5. Pin ocaml-lsp from submodule ───────────────────────────────────────────
 
 log "Pinning ocaml-lsp packages at version $LSP_VER..."
 opam pin add "jsonrpc.$LSP_VER"          "$REPO_ROOT/ocaml-lsp" --no-action -y
@@ -90,7 +95,7 @@ opam pin add "ocaml-lsp-server.$LSP_VER" "$REPO_ROOT/ocaml-lsp" --no-action -y
 opam pin add "merlin-lib.$MERLIN_VER"  "$REPO_ROOT/merlin" --no-action -y
 opam pin add "ocaml-index.$MERLIN_VER" "$REPO_ROOT/merlin" --no-action -y
 
-# ── 5. Install merlin and ocaml-lsp (provides ocamlmerlin + ocamllsp) ─────────
+# ── 6. Install merlin and ocaml-lsp (provides ocamlmerlin + ocamllsp) ─────────
 
 log "Installing merlin and ocaml-lsp-server (this takes a while on first run)..."
 # --ignore-constraints-on is a safety valve: if version strings diverge between
@@ -101,7 +106,7 @@ eval "$(opam env)"
 log "ocamllsp:     $(ocamllsp --version)"
 log "ocamlmerlin:  $(ocamlmerlin --version | head -1)"
 
-# ── 6. Build the VSCode extension ─────────────────────────────────────────────
+# ── 7. Build the VSCode extension ─────────────────────────────────────────────
 
 log "Installing JS dependencies for vscode-ocaml-platform..."
 cd "$REPO_ROOT/vscode-ocaml-platform"
@@ -116,7 +121,7 @@ make build
 log "Packaging extension as .vsix..."
 make pkg
 
-# ── 7. Install the extension (requires 'code' CLI) ────────────────────────────
+# ── 8. Install the extension (requires 'code' CLI) ────────────────────────────
 
 log "Installing extension..."
 if command -v code &>/dev/null; then
@@ -131,7 +136,7 @@ else
     echo "    code --install-extension $VSIX"
 fi
 
-# ── 8. Clone the demo project (Dune repo) ─────────────────────────────────────
+# ── 9. Clone the demo project (Dune repo) ─────────────────────────────────────
 
 if [ ! -d "$DEMO_PROJECT_DIR/.git" ]; then
     log "Cloning dune repo as the demo project..."
