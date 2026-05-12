@@ -1,0 +1,32 @@
+{
+  "name": "ocamlgrep VSCode Demo",
+
+  // OCaml 5.3 + opam pre-installed.
+  // The setup script installs all other dependencies on first start.
+  "image": "ocaml/opam:ubuntu-24.04-ocaml-5.3",
+
+  "onCreateCommand": "sudo apt-get update -qq && sudo apt-get install -y -qq libev-dev pkg-config build-essential curl git",
+
+  // Build merlin, ocaml-lsp, and the VSCode extension.
+  // The 'code' CLI is injected by VS Code Remote before postAttachCommand runs.
+  "postCreateCommand": "bash /workspace/scripts/setup.sh 2>&1 | tee /tmp/setup.log",
+
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "ocaml.sandbox": {
+          "kind": "global"
+        },
+        "terminal.integrated.defaultProfile.linux": "bash",
+        "terminal.integrated.env.linux": {
+          "OPAMSWITCH": "default"
+        }
+      }
+    }
+  },
+
+  "workspaceFolder": "/workspace",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind",
+
+  "remoteUser": "opam"
+}

@@ -1,0 +1,12 @@
+[submodule "merlin"]
+	path = merlin
+	url = ../merlin
+	branch = ocamlgrep
+[submodule "ocaml-lsp"]
+	path = ocaml-lsp
+	url = ../ocaml-lsp
+	branch = ocamlgrep
+[submodule "vscode-ocaml-platform"]
+	path = vscode-ocaml-platform
+	url = ../vscode-ocaml-platform
+	branch = ocamlgrep
