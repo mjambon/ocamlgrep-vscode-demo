@@ -107,7 +107,7 @@ opam install merlin ocaml-lsp-server -y \
     --ignore-constraints-on merlin-lib,dot-merlin-reader,ocaml-index
 eval "$(opam env)"
 log "ocamllsp:     $(ocamllsp --version)"
-log "ocamlmerlin:  $(ocamlmerlin --version | head -1)"
+log "merlin:       $(opam info merlin --field=installed-version 2>/dev/null || echo 'unknown')"
 
 # ── 7. Build the VSCode extension ─────────────────────────────────────────────
 
