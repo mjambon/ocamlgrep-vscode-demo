@@ -84,6 +84,12 @@ opam pin add "jsonrpc.$LSP_VER"          "$REPO_ROOT/ocaml-lsp" --no-action -y
 opam pin add "lsp.$LSP_VER"              "$REPO_ROOT/ocaml-lsp" --no-action -y
 opam pin add "ocaml-lsp-server.$LSP_VER" "$REPO_ROOT/ocaml-lsp" --no-action -y
 
+# ocaml-lsp-server.opam upstream contains pin-depends that re-pin merlin-lib
+# from GitHub main; our fork removes those, but re-assert our local pins here
+# as a safety valve in case they were overridden.
+opam pin add "merlin-lib.$MERLIN_VER"  "$REPO_ROOT/merlin" --no-action -y
+opam pin add "ocaml-index.$MERLIN_VER" "$REPO_ROOT/merlin" --no-action -y
+
 # ── 5. Install merlin and ocaml-lsp (provides ocamlmerlin + ocamllsp) ─────────
 
 log "Installing merlin and ocaml-lsp-server (this takes a while on first run)..."
