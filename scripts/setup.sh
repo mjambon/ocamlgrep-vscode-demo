@@ -27,19 +27,25 @@ fi
 log "bun: $(bun --version)"
 
 # ── 3. Pin merlin from submodule ───────────────────────────────────────────────
+#
+# merlin.opam has "merlin-lib" {= version}, so all packages in the merlin repo
+# MUST be pinned with the same version string.  We derive it from the nearest
+# git tag so opam's version constraint {= version} stays consistent.
 
-log "Pinning merlin packages from submodule..."
-opam pin add merlin            "$REPO_ROOT/merlin" --no-action -y
-opam pin add merlin-lib        "$REPO_ROOT/merlin" --no-action -y
-opam pin add dot-merlin-reader "$REPO_ROOT/merlin" --no-action -y
-opam pin add ocaml-index       "$REPO_ROOT/merlin" --no-action -y 2>/dev/null || true
+MERLIN_VER=$(git -C "$REPO_ROOT/merlin" describe --tags --abbrev=0 | sed 's/^v//')
+log "Pinning merlin packages from submodule at version $MERLIN_VER..."
+opam pin add merlin            "$MERLIN_VER" "$REPO_ROOT/merlin" --no-action -y
+opam pin add merlin-lib        "$MERLIN_VER" "$REPO_ROOT/merlin" --no-action -y
+opam pin add dot-merlin-reader "$MERLIN_VER" "$REPO_ROOT/merlin" --no-action -y
+opam pin add ocaml-index       "$MERLIN_VER" "$REPO_ROOT/merlin" --no-action -y 2>/dev/null || true
 
 # ── 4. Pin ocaml-lsp from submodule ───────────────────────────────────────────
 
-log "Pinning ocaml-lsp packages from submodule..."
-opam pin add jsonrpc           "$REPO_ROOT/ocaml-lsp" --no-action -y
-opam pin add lsp               "$REPO_ROOT/ocaml-lsp" --no-action -y
-opam pin add ocaml-lsp-server  "$REPO_ROOT/ocaml-lsp" --no-action -y
+LSP_VER=$(git -C "$REPO_ROOT/ocaml-lsp" describe --tags --abbrev=0 | sed 's/^v//')
+log "Pinning ocaml-lsp packages from submodule at version $LSP_VER..."
+opam pin add jsonrpc           "$LSP_VER" "$REPO_ROOT/ocaml-lsp" --no-action -y
+opam pin add lsp               "$LSP_VER" "$REPO_ROOT/ocaml-lsp" --no-action -y
+opam pin add ocaml-lsp-server  "$LSP_VER" "$REPO_ROOT/ocaml-lsp" --no-action -y
 
 # ── 5. Install merlin and ocaml-lsp (provides ocamlmerlin + ocamllsp) ─────────
 
