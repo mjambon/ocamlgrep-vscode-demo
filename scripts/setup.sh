@@ -14,6 +14,9 @@ log() { echo ""; echo "==> $*"; }
 
 # ── 1. Opam environment ────────────────────────────────────────────────────────
 
+# Unset OPAMSWITCH so opam uses whatever switch exists in this image,
+# then let 'opam env' set the right values.
+unset OPAMSWITCH
 eval "$(opam env)"
 log "OCaml: $(ocaml --version)"
 
