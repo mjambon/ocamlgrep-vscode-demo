@@ -4,7 +4,7 @@
   // OCaml 5.4 + opam pre-installed.  The switch is named "5.4" in this image.
   "image": "ocaml/opam:ubuntu-24.04-ocaml-5.4",
 
-  "onCreateCommand": "sudo apt-get update -qq && sudo apt-get install -y -qq libev-dev pkg-config build-essential curl git",
+  "onCreateCommand": "sudo apt-get update -qq && sudo apt-get install -y -qq libev-dev pkg-config build-essential curl git && echo 'export PATH=\"$HOME/.bun/bin:$PATH\"' >> ~/.bashrc",
 
   // Build merlin, ocaml-lsp, and the VSCode extension.
   // The 'code' CLI is injected by VS Code Remote before postAttachCommand runs.
