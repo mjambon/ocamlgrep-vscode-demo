@@ -196,3 +196,37 @@ the actual GitHub remotes once the `ocamlgrep` branches are pushed.
       (compiling OCaml from source). A pre-built Docker image would speed this up.
 - [ ] The `.gitmodules` relative URLs won't work for users cloning from GitHub;
       update to absolute GitHub URLs before sharing publicly.
+
+## Hard-won implementation notes
+
+### QuickPick.set: all fields must be set explicitly
+VS Code calls `.filter` and `.slice` on `activeItems`, `selectedItems`, and
+`buttons` before showing the QuickPick. If any of these are `undefined`
+(because OCaml optional parameters default to `None`), you get a JS runtime
+error. Always pass `~activeItems:[] ~selectedItems:[] ~buttons:[] ~busy:false
+~enabled:true` even when not needed.
+
+### InputBox must be hidden before showing the QuickPick
+VS Code only shows one QuickInput at a time. If the InputBox is still active
+when `QuickPick.show` is called, the QuickPick is suppressed silently.
+`InputBox.hide` must be bound explicitly (it was missing from the bindings)
+and called before `QuickPick.show`.
+
+### cmt file paths are CWD-relative in merlin's scan.ml
+`Sys.file_exists` and `read_lines` in `scan.ml` used relative paths that only
+worked when CWD was the project root. The LSP server's CWD is not guaranteed
+to be the project root. Fixed by using `Filename.concat paths.project_root rel`
+to make paths absolute.
+
+### cmt_sourcefile can point into _build/
+Dune records the build-directory path in `cmt_sourcefile` for some files.
+Reading from `_build/default/...` gives the preprocessed (sometimes binary)
+content instead of the source. Fixed by detecting the build-dir prefix and
+redirecting to the project source tree.
+
+### ocaml-lsp base commit selection
+The `ocamlgrep` branch is based on commit `838b58a6` (just before "fix: compile
+with Dune 3.22"). The dune-3.22 commit requires `dune-rpc >= 3.22.0` which is
+not yet in the stable opam repository. We cherry-picked `fcd116a8` separately
+to get the merlin 5.7 API compatibility fix (`Merlin_utils.Misc` →
+`Ocaml_utils.Misc`).
