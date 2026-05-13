@@ -42,7 +42,7 @@ tree, which is already present as a submodule and built as part of setup.
 
 https://github.com/mjambon/ocamlgrep-vscode-demo/raw/main/web/ocamlgrep-demo.mp4
 
-<video src="web/ocamlgrep-demo.mp4" controls width="100%"></video>
+<video src="https://github.com/user-attachments/assets/6d0d1fad-827a-4eb0-9ce3-44c9ed61e6b2" controls width="100%"></video>
 
 ---
 
