@@ -10,8 +10,9 @@
   "postCreateCommand": "bash /workspace/scripts/setup.sh 2>&1 | tee /tmp/setup.log",
 
   // Install the built .vsix into VS Code (fast, runs on each attach).
-  // 'code' CLI is only available after VS Code attaches, not during postCreateCommand.
-  "postAttachCommand": "test -f /workspace/vscode-ocaml-platform/ocaml-platform.vsix && code --install-extension /workspace/vscode-ocaml-platform/ocaml-platform.vsix --force || true",
+  // Uses a script that searches for the 'code' CLI under ~/.vscode-server
+  // if it is not in PATH (which is common in postAttachCommand).
+  "postAttachCommand": "bash /workspace/scripts/install-extension.sh",
 
   "customizations": {
     "vscode": {
