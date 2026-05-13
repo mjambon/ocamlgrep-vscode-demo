@@ -186,8 +186,12 @@ the actual GitHub remotes once the `ocamlgrep` branches are pushed.
 - [ ] The extension doesn't display a progress indicator while the search runs.
       Large projects may take several seconds.
 - [ ] The QuickPick doesn't support preview-on-hover (would require `onDidChangeActive`).
-- [ ] The `root_opt = None` approach relies on the LSP server's CWD being the project root.
-      Multi-root workspaces are not handled.
+- [ ] The active file determines which project is searched: ocamlgrep uses the
+      active editor's document to obtain a merlin pipeline, so the file must
+      belong to a project with a working dune/merlin config.  If merlin reports
+      "No config found for file …", the wrong file is active.  For the demo,
+      keep a file from /workspace/ocaml-lsp active before running the command.
+- [ ] Multi-root workspaces are not handled.
 - [ ] The devcontainer's `postCreateCommand` can take 10-20 minutes on first run
       (compiling OCaml from source). A pre-built Docker image would speed this up.
 - [ ] The `.gitmodules` relative URLs won't work for users cloning from GitHub;
