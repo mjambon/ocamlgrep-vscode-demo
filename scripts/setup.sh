@@ -154,10 +154,10 @@ fi
 
 log "Building .cmt files in demo project (ocaml-lsp)..."
 cd "$REPO_ROOT/ocaml-lsp"
-# Build only the library and server targets; skip tests which need
-# ppx_inline_test.config and other dev-only dependencies.
-opam exec -- dune build ocaml-lsp-server/src @install 2>&1 | tail -10 || {
-    echo "  WARNING: dune build had errors."
+# @check type-checks every source file (including vendors) and writes .cmt
+# files that ocamlgrep reads at query time.  Test deps must be installed first.
+opam exec -- dune build @check 2>&1 | tail -10 || {
+    echo "  WARNING: dune build @check had errors."
 }
 
 # ── Done ──────────────────────────────────────────────────────────────────────
