@@ -118,10 +118,11 @@ bun install --frozen-lockfile
 log "Installing OCaml dependencies for vscode-ocaml-platform..."
 opam install --deps-only --yes . 2>&1 | tail -5
 
-# ppx_inline_test is needed for 'dune describe workspace' to succeed in the
-# demo project (ocaml-lsp); without it the ocamlgrep query fails at runtime.
-log "Installing ppx_inline_test (needed by dune describe workspace)..."
-opam install ppx_inline_test -y 2>&1 | tail -5
+# Install all test/dev deps so 'dune describe workspace' succeeds in the demo
+# project; ocamlgrep runs that command at query time to enumerate source files.
+log "Installing ocaml-lsp test dependencies (needed by dune describe workspace)..."
+cd "$REPO_ROOT/ocaml-lsp"
+opam install --deps-only --with-test --yes . 2>&1 | tail -5
 
 log "Building vscode-ocaml-platform extension..."
 make build
