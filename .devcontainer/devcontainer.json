@@ -6,9 +6,12 @@
 
   "onCreateCommand": "sudo apt-get update -qq && sudo apt-get install -y -qq libev-dev pkg-config build-essential curl git && echo 'export PATH=\"$HOME/.bun/bin:$PATH\"' >> ~/.bashrc",
 
-  // Build merlin, ocaml-lsp, and the VSCode extension.
-  // The 'code' CLI is injected by VS Code Remote before postAttachCommand runs.
+  // Build everything (slow, runs once on container creation).
   "postCreateCommand": "bash /workspace/scripts/setup.sh 2>&1 | tee /tmp/setup.log",
+
+  // Install the built .vsix into VS Code (fast, runs on each attach).
+  // 'code' CLI is only available after VS Code attaches, not during postCreateCommand.
+  "postAttachCommand": "test -f /workspace/vscode-ocaml-platform/ocaml-platform.vsix && code --install-extension /workspace/vscode-ocaml-platform/ocaml-platform.vsix --force || true",
 
   "customizations": {
     "vscode": {

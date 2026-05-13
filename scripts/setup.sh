@@ -132,23 +132,10 @@ make build
 
 log "Packaging extension as .vsix..."
 make pkg
+# Extension installation requires the 'code' CLI which is only available after
+# VS Code attaches.  The devcontainer.json postAttachCommand handles this.
 
-# ── 8. Install the extension (requires 'code' CLI) ────────────────────────────
-
-log "Installing extension..."
-if command -v code &>/dev/null; then
-    make install
-elif command -v code-server &>/dev/null; then
-    VSIX=$(ls "$REPO_ROOT/vscode-ocaml-platform"/*.vsix | head -1)
-    code-server --install-extension "$VSIX" --force
-else
-    VSIX=$(ls "$REPO_ROOT/vscode-ocaml-platform"/*.vsix | head -1)
-    echo ""
-    echo "  NOTE: 'code' CLI not found.  Install the extension manually:"
-    echo "    code --install-extension $VSIX"
-fi
-
-# ── 9. Build .cmt files for the demo project (ocaml-lsp submodule) ────────────
+# ── 8. Build .cmt files for the demo project (ocaml-lsp submodule) ────────────
 #
 # We use the ocaml-lsp source tree as the demo project: it's already present,
 # already has its dependencies installed (step 6 above), and is a good-sized
