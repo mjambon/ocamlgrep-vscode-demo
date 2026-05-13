@@ -118,10 +118,13 @@ bun install --frozen-lockfile
 log "Installing OCaml dependencies for vscode-ocaml-platform..."
 opam install --deps-only --yes . 2>&1 | tail -5
 
-# Install all test/dev deps so 'dune describe workspace' succeeds in the demo
+# Install test/dev deps so 'dune describe workspace' succeeds in the demo
 # project; ocamlgrep runs that command at query time to enumerate source files.
+# ppx_inline_test and ppx_expect are needed by jsonrpc-fiber's test suite but
+# do not appear in any top-level opam file, so we install them explicitly.
 log "Installing ocaml-lsp test dependencies (needed by dune describe workspace)..."
 opam install --deps-only --with-test --yes "$REPO_ROOT/ocaml-lsp" 2>&1 | tail -5
+opam install ppx_inline_test ppx_expect -y 2>&1 | tail -5
 
 log "Building vscode-ocaml-platform extension..."
 cd "$REPO_ROOT/vscode-ocaml-platform"
@@ -156,9 +159,7 @@ log "Building .cmt files in demo project (ocaml-lsp)..."
 cd "$REPO_ROOT/ocaml-lsp"
 # @check type-checks every source file (including vendors) and writes .cmt
 # files that ocamlgrep reads at query time.  Test deps must be installed first.
-opam exec -- dune build @check 2>&1 | tail -10 || {
-    echo "  WARNING: dune build @check had errors."
-}
+opam exec -- dune build @check 2>&1 | tail -10
 
 # ── Done ──────────────────────────────────────────────────────────────────────
 
