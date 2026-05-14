@@ -99,7 +99,7 @@ cd ocamlgrep-vscode-demo
 bash scripts/setup.sh
 ```
 
-Then open VS Code on `demo-project/`.
+Then open VS Code on `/workspace/ocaml-lsp`.
 
 ---
 
@@ -137,7 +137,7 @@ ocamlgrep-vscode-demo/
 ├── merlin/                     ← submodule (ocamlgrep branch)
 ├── ocaml-lsp/                  ← submodule (ocamlgrep branch)
 ├── vscode-ocaml-platform/      ← submodule (ocamlgrep branch)
-├── demo-project/               ← cloned by setup.sh (dune repo, not committed)
+├── web/                        ← demo video
 ├── scripts/
 │   └── setup.sh                ← builds everything and installs the extension
 └── .devcontainer/
