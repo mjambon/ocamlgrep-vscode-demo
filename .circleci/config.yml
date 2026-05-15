@@ -1,0 +1,82 @@
+version: 2.1
+
+jobs:
+  build:
+    docker:
+      - image: ocaml/opam:ubuntu-24.04-ocaml-5.4
+    resource_class: large        # 4 vCPU / 8 GB — OCaml compilation is heavy
+    environment:
+      OPAMSWITCH: "5.4"
+    working_directory: /workspace
+
+    steps:
+      # ── System deps ─────────────────────────────────────────────────────────
+      - run:
+          name: Install system dependencies
+          command: >
+            sudo apt-get update -qq &&
+            sudo apt-get install -y -qq
+            libev-dev pkg-config build-essential curl git
+
+      # ── Source checkout ─────────────────────────────────────────────────────
+      - checkout
+      - run:
+          name: Checkout submodules
+          command: git submodule update --init --recursive
+
+      # ── Bun (JS runtime/bundler for the VS Code extension) ──────────────────
+      - restore_cache:
+          keys:
+            - bun-v1-{{ checksum "vscode-ocaml-platform/bun.lock" }}
+      - run:
+          name: Install bun
+          command: |
+            if ! command -v ~/.bun/bin/bun &>/dev/null; then
+              curl -fsSL https://bun.sh/install | bash
+            fi
+            echo 'export PATH="$HOME/.bun/bin:$PATH"' >> "$BASH_ENV"
+      - save_cache:
+          key: bun-v1-{{ checksum "vscode-ocaml-platform/bun.lock" }}
+          paths:
+            - ~/.bun
+
+      # ── opam package cache ───────────────────────────────────────────────────
+      # Key includes the submodule commit SHAs so the cache is invalidated when
+      # merlin or ocaml-lsp changes.
+      - restore_cache:
+          keys:
+            - opam-v1-{{ checksum "merlin/.git/HEAD" }}-{{ checksum "ocaml-lsp/.git/HEAD" }}
+            - opam-v1-
+
+      # ── Build ────────────────────────────────────────────────────────────────
+      - run:
+          name: Update opam index
+          command: unset OPAMSWITCH && eval "$(opam env)" && opam update -y
+
+      - run:
+          name: Pin and install merlin + ocaml-lsp-server
+          command: bash scripts/setup.sh
+          no_output_timeout: 30m
+
+      - save_cache:
+          key: opam-v1-{{ checksum "merlin/.git/HEAD" }}-{{ checksum "ocaml-lsp/.git/HEAD" }}
+          paths:
+            - ~/.opam
+
+      # ── Smoke test ───────────────────────────────────────────────────────────
+      - run:
+          name: Verify installed binaries
+          command: |
+            eval "$(opam env)"
+            echo "ocamllsp: $(ocamllsp --version)"
+            echo "merlin:   $(opam info merlin --field=installed-version)"
+
+      # ── Publish .vsix as a build artifact ───────────────────────────────────
+      - store_artifacts:
+          path: /workspace/vscode-ocaml-platform/ocaml-platform.vsix
+          destination: ocaml-platform.vsix
+
+workflows:
+  build:
+    jobs:
+      - build
