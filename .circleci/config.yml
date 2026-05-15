@@ -7,7 +7,8 @@ jobs:
     resource_class: large        # 4 vCPU / 8 GB — OCaml compilation is heavy
     environment:
       OPAMSWITCH: "5.4"
-    working_directory: /workspace
+    # Use the default working directory (~/project); /workspace is only
+    # available in the devcontainer via a bind mount.
 
     steps:
       # ── System deps ─────────────────────────────────────────────────────────
@@ -73,7 +74,7 @@ jobs:
 
       # ── Publish .vsix as a build artifact ───────────────────────────────────
       - store_artifacts:
-          path: /workspace/vscode-ocaml-platform/ocaml-platform.vsix
+          path: vscode-ocaml-platform/ocaml-platform.vsix
           destination: ocaml-platform.vsix
 
 workflows:
