@@ -46,7 +46,7 @@ jobs:
       # merlin or ocaml-lsp changes.
       - restore_cache:
           keys:
-            - opam-v1-{{ checksum "merlin/.git/HEAD" }}-{{ checksum "ocaml-lsp/.git/HEAD" }}
+            - opam-v1-{{ checksum ".git/modules/merlin/HEAD" }}-{{ checksum ".git/modules/ocaml-lsp/HEAD" }}
             - opam-v1-
 
       # ── Build ────────────────────────────────────────────────────────────────
@@ -60,7 +60,7 @@ jobs:
           no_output_timeout: 30m
 
       - save_cache:
-          key: opam-v1-{{ checksum "merlin/.git/HEAD" }}-{{ checksum "ocaml-lsp/.git/HEAD" }}
+          key: opam-v1-{{ checksum ".git/modules/merlin/HEAD" }}-{{ checksum ".git/modules/ocaml-lsp/HEAD" }}
           paths:
             - ~/.opam
 
