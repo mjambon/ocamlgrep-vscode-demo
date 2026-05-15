@@ -1,5 +1,7 @@
 # ocamlgrep VSCode Demo
 
+[![CircleCI](https://circleci.com/gh/mjambon/ocamlgrep-vscode-demo.svg?style=svg)](https://app.circleci.com/pipelines/github/mjambon/ocamlgrep-vscode-demo)
+
 A proof-of-concept VS Code integration for **ocamlgrep** — a project-wide search
 for OCaml expression patterns based on type and structure rather than text.
 
