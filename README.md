@@ -42,9 +42,9 @@ String.concat __ __        →  all String.concat calls
 The demo searches the [ocaml-lsp](https://github.com/ocaml/ocaml-lsp) source
 tree, which is already present as a submodule and built as part of setup.
 
-https://github.com/mjambon/ocamlgrep-vscode-demo/raw/main/web/ocamlgrep-demo.mp4
+https://github.com/mjambon/ocamlgrep-vscode-demo/raw/main/web/ocamlgrep-demo3.mp4
 
-<video src="https://github.com/user-attachments/assets/6d0d1fad-827a-4eb0-9ce3-44c9ed61e6b2" controls width="100%"></video>
+<video src="https://github.com/user-attachments/assets/12b384a6-f0ea-4d14-9d13-7f0357e2f1d6" controls width="100%"></video>
 
 ---
 
