@@ -107,15 +107,25 @@ opam pin add "ocaml-index.$MERLIN_VER" "$REPO_ROOT/merlin" --no-action -y
 # ── 7. Install merlin and ocaml-lsp (provides ocamlmerlin + ocamllsp) ─────────
 
 log "Installing merlin and ocaml-lsp-server (this takes a while on first run)..."
-# Constrain the dune family to 3.20.2: dune >= 3.21 has a Chan API that is
-# incompatible with the ocaml-lsp code at our base commit (838b58a6).
+# Constrain the dune family to a known-good version: dune >= 3.21 has a Chan
+# API incompatible with the ocaml-lsp code at our base commit (838b58a6).
 # opam install accepts PACKAGE.VERSION as an exact-version constraint.
-DUNE_PKGS="dune.3.20.2 dune-rpc.3.20.2 dune-build-info.3.20.2
-           dune-configurator.3.20.2 chrome-trace.3.20.2 stdune.3.20.2
-           dyn.3.20.2 ordering.3.20.2 xdg.3.20.2 ocamlc-loc.3.20.2
-           top-closure.3.20.2 fs-io.3.20.2"
-# shellcheck disable=SC2086
-opam install merlin ocaml-lsp-server $DUNE_PKGS -y \
+DUNE_VER="3.20.2"
+DUNE_PKGS=(
+    "dune.$DUNE_VER"
+    "dune-rpc.$DUNE_VER"
+    "dune-build-info.$DUNE_VER"
+    "dune-configurator.$DUNE_VER"
+    "chrome-trace.$DUNE_VER"
+    "stdune.$DUNE_VER"
+    "dyn.$DUNE_VER"
+    "ordering.$DUNE_VER"
+    "xdg.$DUNE_VER"
+    "ocamlc-loc.$DUNE_VER"
+    "top-closure.$DUNE_VER"
+    "fs-io.$DUNE_VER"
+)
+opam install merlin ocaml-lsp-server "${DUNE_PKGS[@]}" -y \
     --ignore-constraints-on merlin-lib,dot-merlin-reader,ocaml-index
 eval "$(opam env)"
 log "ocamllsp:     $(ocamllsp --version)"
