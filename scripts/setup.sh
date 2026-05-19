@@ -98,6 +98,10 @@ opam pin add "jsonrpc.$LSP_VER"          "$REPO_ROOT/ocaml-lsp" --no-action -y
 opam pin add "lsp.$LSP_VER"              "$REPO_ROOT/ocaml-lsp" --no-action -y
 opam pin add "ocaml-lsp-server.$LSP_VER" "$REPO_ROOT/ocaml-lsp" --no-action -y
 
+# opam may modify opam files in the pin source working tree during processing;
+# restore them so the submodule stays clean.
+git -C "$REPO_ROOT/ocaml-lsp" checkout -- . 2>/dev/null || true
+
 # ocaml-lsp-server.opam upstream contains pin-depends that re-pin merlin-lib
 # from GitHub main; our fork removes those, but re-assert our local pins here
 # as a safety valve in case they were overridden.
