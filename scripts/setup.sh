@@ -37,7 +37,19 @@ log "bun: $(bun --version)"
 log "Updating opam package index..."
 opam update -y
 
-# ── 4. Pin merlin from submodule ───────────────────────────────────────────────
+# ── 4. Pin dune packages to a known-good version ──────────────────────────────
+#
+# dune-rpc 3.21.0 in the opam repository has a Chan API (write without option,
+# close) that is incompatible with the ocaml-lsp code at our base commit
+# (838b58a6).  Pin the entire dune family to 3.20.2 which has the old API.
+
+log "Pinning dune packages to 3.20.2..."
+for pkg in dune dune-rpc dune-build-info dune-configurator chrome-trace stdune \
+           dyn ordering xdg ocamlc-loc top-closure fs-io; do
+    opam pin add "$pkg.3.20.2" --no-action -y 2>/dev/null || true
+done
+
+# ── 5. Pin merlin from submodule ───────────────────────────────────────────────
 #
 # merlin.opam declares "merlin-lib" {= version}, so all packages must be pinned
 # at the same version string.  We read the version that opam would infer for
@@ -85,7 +97,7 @@ opam pin add "dot-merlin-reader.$MERLIN_VER" "$REPO_ROOT/merlin" --no-action -y
 opam pin add "ocaml-index.$MERLIN_VER"       "$REPO_ROOT/merlin" --no-action -y \
     2>/dev/null || true
 
-# ── 5. Pin ocaml-lsp from submodule ───────────────────────────────────────────
+# ── 6. Pin ocaml-lsp from submodule ───────────────────────────────────────────
 
 log "Pinning ocaml-lsp packages at version $LSP_VER..."
 opam pin add "jsonrpc.$LSP_VER"          "$REPO_ROOT/ocaml-lsp" --no-action -y
@@ -98,7 +110,7 @@ opam pin add "ocaml-lsp-server.$LSP_VER" "$REPO_ROOT/ocaml-lsp" --no-action -y
 opam pin add "merlin-lib.$MERLIN_VER"  "$REPO_ROOT/merlin" --no-action -y
 opam pin add "ocaml-index.$MERLIN_VER" "$REPO_ROOT/merlin" --no-action -y
 
-# ── 6. Install merlin and ocaml-lsp (provides ocamlmerlin + ocamllsp) ─────────
+# ── 7. Install merlin and ocaml-lsp (provides ocamlmerlin + ocamllsp) ─────────
 
 log "Installing merlin and ocaml-lsp-server (this takes a while on first run)..."
 # --ignore-constraints-on is a safety valve: if version strings diverge between
@@ -109,7 +121,7 @@ eval "$(opam env)"
 log "ocamllsp:     $(ocamllsp --version)"
 log "merlin:       $(opam info merlin --field=installed-version 2>/dev/null || echo 'unknown')"
 
-# ── 7. Build the VSCode extension ─────────────────────────────────────────────
+# ── 8. Build the VSCode extension ─────────────────────────────────────────────
 
 log "Installing JS dependencies for vscode-ocaml-platform..."
 cd "$REPO_ROOT/vscode-ocaml-platform"
@@ -135,7 +147,7 @@ make pkg
 # Extension installation requires the 'code' CLI which is only available after
 # VS Code attaches.  The devcontainer.json postAttachCommand handles this.
 
-# ── 8. Build .cmt files for the demo project (ocaml-lsp submodule) ────────────
+# ── 9. Build .cmt files for the demo project (ocaml-lsp submodule) ────────────
 #
 # We use the ocaml-lsp source tree as the demo project: it's already present,
 # already has its dependencies installed (step 6 above), and is a good-sized
