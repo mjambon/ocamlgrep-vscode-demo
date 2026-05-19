@@ -10,12 +10,15 @@ if [ ! -f "$VSIX" ]; then
     exit 0
 fi
 
-# Find the 'code' CLI: try PATH first, then the VS Code server directory.
+# Find the 'code' CLI: try PATH first, then search the known VS Code server
+# locations (/vscode/vscode-server is used by the devcontainer image;
+# ~/.vscode-server is the default for Remote-SSH and older setups).
 CODE=""
 if command -v code &>/dev/null; then
     CODE="code"
 else
-    CODE=$(find "$HOME/.vscode-server" -name "code" -type f 2>/dev/null | head -1)
+    CODE=$(find /vscode/vscode-server "$HOME/.vscode-server" \
+               -name "code" -type f 2>/dev/null | head -1)
 fi
 
 if [ -z "$CODE" ]; then
