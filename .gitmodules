@@ -1,11 +1,11 @@
-[submodule "merlin"]
-	path = merlin
-	url = https://github.com/mjambon/merlin.git
-	branch = ocamlgrep
+[submodule "ocamlgrep"]
+	path = ocamlgrep
+	url = https://github.com/mjambon/ocamlgrep.git
+	branch = lsponly
 [submodule "ocaml-lsp"]
 	path = ocaml-lsp
 	url = https://github.com/mjambon/ocaml-lsp.git
-	branch = ocamlgrep
+	branch = lsponly
 [submodule "vscode-ocaml-platform"]
 	path = vscode-ocaml-platform
 	url = https://github.com/mjambon/vscode-ocaml-platform.git

@@ -37,88 +37,38 @@ log "bun: $(bun --version)"
 log "Updating opam package index..."
 opam update -y
 
-# ── 4. (dune version is constrained at install time; see step 7) ──────────────
-#
-# dune >= 3.21 has a Chan API (write without option, close) incompatible with
-# the ocaml-lsp code at our base commit (838b58a6).  We constrain the whole
-# dune family to 3.20.2 by passing explicit version arguments to opam install.
+# ── 4. Pin ocamlgrep-lib from submodule ───────────────────────────────────────
 
-# ── 5. Pin merlin from submodule ───────────────────────────────────────────────
-#
-# merlin.opam declares "merlin-lib" {= version}, so all packages must be pinned
-# at the same version string.  We read the version that opam would infer for
-# 'merlin' and then explicitly pass the same string to every other pin in the
-# repo.  If git describe fails (no tags in the submodule clone), we fall back to
-# the latest version in the opam repository.
+OCAMLGREP_VER=$(git -C "$REPO_ROOT/ocamlgrep" describe --tags --abbrev=0 \
+    2>/dev/null | sed 's/^v//') || true
+OCAMLGREP_VER="${OCAMLGREP_VER:-0.1}"
 
-# fetch_tags_if_missing REPO_DIR UPSTREAM_URL
-# Fetches tags from the upstream if the submodule clone has none.
-# Writes progress to stderr so it doesn't pollute command-substitution output.
-fetch_tags_if_missing() {
-    local dir="$1" upstream="$2"
-    if ! git -C "$dir" describe --tags --abbrev=0 &>/dev/null; then
-        echo "  No tags in $(basename "$dir") submodule — fetching from upstream..." >&2
-        git -C "$dir" remote add upstream "$upstream" 2>/dev/null || true
-        git -C "$dir" fetch --tags upstream 2>&1 | tail -3 >&2 || true
-    fi
-}
+log "Pinning ocamlgrep-lib at version $OCAMLGREP_VER..."
+opam pin add "ocamlgrep-lib.$OCAMLGREP_VER" "$REPO_ROOT/ocamlgrep" --no-action -y
 
-# infer_version REPO_DIR PACKAGE_NAME
-# Prints the version string opam should use for a pin; falls back to the latest
-# opam-registry version for PACKAGE_NAME if git describe still finds nothing.
-infer_version() {
-    local dir="$1" pkg="$2"
-    local ver
-    ver=$(git -C "$dir" describe --tags --abbrev=0 2>/dev/null | sed 's/^v//') || true
-    if [ -z "$ver" ]; then
-        ver=$(opam info "$pkg" --field=all-versions 2>/dev/null \
-                | tr ' ' '\n' | sort -V | tail -1) || true
-    fi
-    echo "${ver:-dev}"
-}
+# ── 5. Pin ocaml-lsp from submodule ───────────────────────────────────────────
 
-fetch_tags_if_missing "$REPO_ROOT/merlin"    https://github.com/ocaml/merlin.git
-fetch_tags_if_missing "$REPO_ROOT/ocaml-lsp" https://github.com/ocaml/ocaml-lsp.git
-
-MERLIN_VER=$(infer_version "$REPO_ROOT/merlin"    merlin)
-LSP_VER=$(infer_version    "$REPO_ROOT/ocaml-lsp" ocaml-lsp-server)
-
-log "Pinning merlin packages at version $MERLIN_VER..."
-# opam pin add syntax for an explicit version is PACKAGE.VERSION TARGET
-opam pin add "merlin.$MERLIN_VER"            "$REPO_ROOT/merlin" --no-action -y
-opam pin add "merlin-lib.$MERLIN_VER"        "$REPO_ROOT/merlin" --no-action -y
-opam pin add "dot-merlin-reader.$MERLIN_VER" "$REPO_ROOT/merlin" --no-action -y
-opam pin add "ocaml-index.$MERLIN_VER"       "$REPO_ROOT/merlin" --no-action -y \
-    2>/dev/null || true
-
-# ── 6. Pin ocaml-lsp from submodule ───────────────────────────────────────────
+LSP_VER=$(git -C "$REPO_ROOT/ocaml-lsp" describe --tags --abbrev=0 \
+    2>/dev/null | sed 's/^v//') || true
+LSP_VER=$(opam info ocaml-lsp-server --field=all-versions 2>/dev/null \
+    | tr ' ' '\n' | sort -V | tail -1) 2>/dev/null || LSP_VER="${LSP_VER:-1.25.0}"
 
 log "Pinning ocaml-lsp packages at version $LSP_VER..."
 opam pin add "jsonrpc.$LSP_VER"          "$REPO_ROOT/ocaml-lsp" --no-action -y
 opam pin add "lsp.$LSP_VER"              "$REPO_ROOT/ocaml-lsp" --no-action -y
 opam pin add "ocaml-lsp-server.$LSP_VER" "$REPO_ROOT/ocaml-lsp" --no-action -y
 
-# opam may modify opam files in the pin source working tree during processing;
-# restore them so the submodule stays clean.
 git -C "$REPO_ROOT/ocaml-lsp" checkout -- . 2>/dev/null || true
 
-# ocaml-lsp-server.opam upstream contains pin-depends that re-pin merlin-lib
-# from GitHub main; our fork removes those, but re-assert our local pins here
-# as a safety valve in case they were overridden.
-opam pin add "merlin-lib.$MERLIN_VER"  "$REPO_ROOT/merlin" --no-action -y
-opam pin add "ocaml-index.$MERLIN_VER" "$REPO_ROOT/merlin" --no-action -y
+# ── 6. Install ocamlgrep-lib and ocaml-lsp-server ─────────────────────────────
 
-# ── 7. Install merlin and ocaml-lsp (provides ocamlmerlin + ocamllsp) ─────────
-
-log "Installing merlin and ocaml-lsp-server (this takes a while on first run)..."
+log "Installing ocamlgrep-lib and ocaml-lsp-server (this takes a while on first run)..."
 # dune >= 3.21 has a Chan API incompatible with our ocaml-lsp base commit
-# (838b58a6).  Constraining dune.3.20.2 is sufficient: opam will pick
-# compatible versions of all other dune sub-packages automatically.
-opam install merlin ocaml-lsp-server "dune.3.20.2" -y \
-    --ignore-constraints-on merlin-lib,dot-merlin-reader,ocaml-index
+# (838b58a6).  Constraining dune.3.20.2 is sufficient.
+opam install ocamlgrep-lib ocaml-lsp-server "dune.3.20.2" -y
 eval "$(opam env)"
-log "ocamllsp:     $(ocamllsp --version)"
-log "merlin:       $(opam info merlin --field=installed-version 2>/dev/null || echo 'unknown')"
+log "ocamllsp:      $(ocamllsp --version)"
+log "ocamlgrep-lib: $(opam info ocamlgrep-lib --field=installed-version 2>/dev/null || echo 'unknown')"
 
 # ── 8. Build the VSCode extension ─────────────────────────────────────────────
 
