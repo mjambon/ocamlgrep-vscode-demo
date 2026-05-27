@@ -9,11 +9,12 @@
 #   1  opam environment
 #   2  bun
 #   3  opam update          (slow, safe to skip on re-runs)
-#   4  pin ocamlgrep-lib
-#   5  pin ocaml-lsp
-#   6  install packages     (slow)
-#   7  build vscode extension
-#   8  build .cmt files     (slow)
+#   4  pin merlin (from upstream; not in opam registry)
+#   5  pin ocamlgrep-lib
+#   6  pin ocaml-lsp
+#   7  install packages     (slow)
+#   8  build vscode extension
+#   9  build .cmt files     (slow)
 
 set -euo pipefail
 
@@ -71,9 +72,27 @@ if should_run_step 3; then
     opam update -y
 fi
 
-# ── 4. Pin ocamlgrep-lib from submodule ───────────────────────────────────────
+# ── 4. Pin merlin packages from upstream ──────────────────────────────────────
+#
+# merlin-lib 5.7.x is not yet in the stable opam repository.  Pin directly
+# from the upstream ocaml/merlin repo at the v5.7.1-504 tag.
+# (No modifications to merlin are needed in the lsponly branch — this is
+# purely to satisfy ocaml-lsp-server's merlin-lib >= 5.7 dependency.)
 
 if should_run_step 4; then
+    log "Pinning merlin packages from upstream at v5.7.1-504..."
+    MERLIN_TAG="v5.7.1-504"
+    MERLIN_URL="git+https://github.com/ocaml/merlin.git#$MERLIN_TAG"
+    MERLIN_VER="${MERLIN_TAG#v}"
+    opam pin add "merlin.$MERLIN_VER"            "$MERLIN_URL" --no-action -y
+    opam pin add "merlin-lib.$MERLIN_VER"        "$MERLIN_URL" --no-action -y
+    opam pin add "dot-merlin-reader.$MERLIN_VER" "$MERLIN_URL" --no-action -y
+    opam pin add "ocaml-index.$MERLIN_VER"       "$MERLIN_URL" --no-action -y 2>/dev/null || true
+fi
+
+# ── 5. Pin ocamlgrep-lib from submodule ───────────────────────────────────────
+
+if should_run_step 5; then
     OCAMLGREP_VER=$(git -C "$REPO_ROOT/ocamlgrep" describe --tags --abbrev=0 \
         2>/dev/null | sed 's/^v//') || true
     log "Pinning ocamlgrep-lib..."
@@ -84,9 +103,9 @@ if should_run_step 4; then
     fi
 fi
 
-# ── 5. Pin ocaml-lsp from submodule ───────────────────────────────────────────
+# ── 6. Pin ocaml-lsp from submodule ───────────────────────────────────────────
 
-if should_run_step 5; then
+if should_run_step 6; then
     LSP_VER=$(opam info ocaml-lsp-server --field=all-versions 2>/dev/null \
         | tr ' ' '\n' | sort -V | tail -1) || LSP_VER='1.25.0'
     log "Pinning ocaml-lsp packages at version $LSP_VER..."
@@ -96,12 +115,13 @@ if should_run_step 5; then
     git -C "$REPO_ROOT/ocaml-lsp" checkout -- . 2>/dev/null || true
 fi
 
-# ── 6. Install packages ────────────────────────────────────────────────────────
+# ── 7. Install packages ────────────────────────────────────────────────────────
 
-if should_run_step 6; then
+if should_run_step 7; then
     log "Installing ocamlgrep-lib and ocaml-lsp-server (this takes a while)..."
     # dune >= 3.21 has a Chan API incompatible with our ocaml-lsp base commit.
-    opam install ocamlgrep-lib ocaml-lsp-server "dune.3.20.2" -y
+    opam install merlin ocamlgrep-lib ocaml-lsp-server "dune.3.20.2" -y \
+        --ignore-constraints-on merlin-lib,dot-merlin-reader,ocaml-index
     eval "$(opam env)"
     log "ocamllsp:      $(ocamllsp --version)"
     log "ocamlgrep-lib: $(opam info ocamlgrep-lib --field=installed-version 2>/dev/null || echo unknown)"
@@ -109,9 +129,9 @@ fi
 
 eval "$(opam env)"
 
-# ── 7. Build the VSCode extension ─────────────────────────────────────────────
+# ── 8. Build the VSCode extension ─────────────────────────────────────────────
 
-if should_run_step 7; then
+if should_run_step 8; then
     log "Installing JS dependencies for vscode-ocaml-platform..."
     cd "$REPO_ROOT/vscode-ocaml-platform"
     bun install --frozen-lockfile
@@ -131,9 +151,9 @@ if should_run_step 7; then
     make pkg
 fi
 
-# ── 8. Build .cmt files ────────────────────────────────────────────────────────
+# ── 9. Build .cmt files ────────────────────────────────────────────────────────
 
-if should_run_step 8; then
+if should_run_step 9; then
     log "Building .cmt files in demo project (ocaml-lsp)..."
     cd "$REPO_ROOT/ocaml-lsp"
     opam exec -- dune build @check 2>&1 | tail -10
