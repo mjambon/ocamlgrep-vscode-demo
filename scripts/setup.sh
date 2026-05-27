@@ -80,14 +80,14 @@ fi
 # purely to satisfy ocaml-lsp-server's merlin-lib >= 5.7 dependency.)
 
 if should_run_step 4; then
-    log "Pinning merlin packages from upstream at v5.7.1-504..."
+    # Only pin the sub-packages ocaml-lsp-server actually depends on.
+    # 'merlin' (the CLI) and 'dot-merlin-reader' are not needed here.
+    log "Pinning merlin-lib and ocaml-index from upstream at v5.7.1-504..."
     MERLIN_TAG="v5.7.1-504"
     MERLIN_URL="git+https://github.com/ocaml/merlin.git#$MERLIN_TAG"
     MERLIN_VER="${MERLIN_TAG#v}"
-    opam pin add "merlin.$MERLIN_VER"            "$MERLIN_URL" --no-action -y
-    opam pin add "merlin-lib.$MERLIN_VER"        "$MERLIN_URL" --no-action -y
-    opam pin add "dot-merlin-reader.$MERLIN_VER" "$MERLIN_URL" --no-action -y
-    opam pin add "ocaml-index.$MERLIN_VER"       "$MERLIN_URL" --no-action -y 2>/dev/null || true
+    opam pin add "merlin-lib.$MERLIN_VER"  "$MERLIN_URL" --no-action -y
+    opam pin add "ocaml-index.$MERLIN_VER" "$MERLIN_URL" --no-action -y
 fi
 
 # ── 5. Pin ocamlgrep-lib from submodule ───────────────────────────────────────
