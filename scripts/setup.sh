@@ -41,10 +41,14 @@ opam update -y
 
 OCAMLGREP_VER=$(git -C "$REPO_ROOT/ocamlgrep" describe --tags --abbrev=0 \
     2>/dev/null | sed 's/^v//') || true
-OCAMLGREP_VER="${OCAMLGREP_VER:-0.1}"
 
-log "Pinning ocamlgrep-lib at version $OCAMLGREP_VER..."
-opam pin add "ocamlgrep-lib.$OCAMLGREP_VER" "$REPO_ROOT/ocamlgrep" --no-action -y
+log "Pinning ocamlgrep-lib..."
+if [ -n "$OCAMLGREP_VER" ]; then
+    opam pin add "ocamlgrep-lib.$OCAMLGREP_VER" "$REPO_ROOT/ocamlgrep" --no-action -y
+else
+    # No git tags in submodule clone; pin without explicit version
+    opam pin add ocamlgrep-lib "$REPO_ROOT/ocamlgrep" --no-action -y
+fi
 
 # ── 5. Pin ocaml-lsp from submodule ───────────────────────────────────────────
 
