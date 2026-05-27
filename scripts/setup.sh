@@ -1,117 +1,147 @@
 #!/usr/bin/env bash
-# setup.sh — Builds merlin, ocaml-lsp, and the VSCode extension from the
-# submodules, then clones and builds the Dune repo as the demo project.
+# setup.sh — Builds ocamlgrep-lib, ocaml-lsp, and the VSCode extension.
 #
-# Expected to run inside the devcontainer (or any system with opam and a
-# recent OCaml switch).  Safe to re-run; most steps are idempotent.
+# Usage:
+#   bash scripts/setup.sh [--from N]
+#
+# --from N  Skip all steps before step N (useful when re-running after a
+#           partial failure).  Steps:
+#   1  opam environment
+#   2  bun
+#   3  opam update          (slow, safe to skip on re-runs)
+#   4  pin ocamlgrep-lib
+#   5  pin ocaml-lsp
+#   6  install packages     (slow)
+#   7  build vscode extension
+#   8  build .cmt files     (slow)
 
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DEMO_PROJECT_DIR="$REPO_ROOT/demo-project"
 
+# ── Parse --from argument ──────────────────────────────────────────────────────
+
+START_FROM=1
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --from)
+            START_FROM="$2"; shift 2 ;;
+        --from=*)
+            START_FROM="${1#--from=}"; shift ;;
+        *)
+            echo "Unknown argument: $1" >&2; exit 1 ;;
+    esac
+done
+
 log() { echo ""; echo "==> $*"; }
+
+# step N: run the body only if N >= START_FROM
+step() {
+    local n="$1"; shift
+    if [ "$n" -ge "$START_FROM" ]; then
+        "$@"
+    else
+        log "Skipping step $n (--from $START_FROM)"
+    fi
+}
 
 # ── 1. Opam environment ────────────────────────────────────────────────────────
 
-# Unset OPAMSWITCH so opam uses whatever switch exists in this image,
-# then let 'opam env' set the right values.
+step 1 bash -c '
+    unset OPAMSWITCH
+    eval "$(opam env)"
+    log "OCaml: $(ocaml --version)"
+'
+# Always set up PATH and opam env for subsequent steps, even when skipping.
 unset OPAMSWITCH
 eval "$(opam env)"
-log "OCaml: $(ocaml --version)"
-
-# ── 2. Install bun (fast JS runtime / bundler) ────────────────────────────────
-
-# Always extend PATH with the bun install location so re-runs find it without
-# needing a fresh shell (bun's installer exports this but doesn't persist it).
 export PATH="$HOME/.bun/bin:$PATH"
 
-if ! command -v bun &>/dev/null; then
-    log "Installing bun..."
-    curl -fsSL https://bun.sh/install | bash
-fi
-log "bun: $(bun --version)"
+# ── 2. Install bun ────────────────────────────────────────────────────────────
+
+step 2 bash -c '
+    export PATH="$HOME/.bun/bin:$PATH"
+    if ! command -v bun &>/dev/null; then
+        log "Installing bun..."
+        curl -fsSL https://bun.sh/install | bash
+    fi
+    log "bun: $(bun --version)"
+'
 
 # ── 3. Refresh opam package index ─────────────────────────────────────────────
 
-log "Updating opam package index..."
-opam update -y
+step 3 bash -c '
+    log "Updating opam package index..."
+    opam update -y
+'
 
 # ── 4. Pin ocamlgrep-lib from submodule ───────────────────────────────────────
 
-OCAMLGREP_VER=$(git -C "$REPO_ROOT/ocamlgrep" describe --tags --abbrev=0 \
-    2>/dev/null | sed 's/^v//') || true
-
-log "Pinning ocamlgrep-lib..."
-if [ -n "$OCAMLGREP_VER" ]; then
-    opam pin add "ocamlgrep-lib.$OCAMLGREP_VER" "$REPO_ROOT/ocamlgrep" --no-action -y
-else
-    # No git tags in submodule clone; pin without explicit version
-    opam pin add ocamlgrep-lib "$REPO_ROOT/ocamlgrep" --no-action -y
-fi
+step 4 bash -c "
+    OCAMLGREP_VER=\$(git -C '$REPO_ROOT/ocamlgrep' describe --tags --abbrev=0 \
+        2>/dev/null | sed 's/^v//') || true
+    log 'Pinning ocamlgrep-lib...'
+    if [ -n \"\$OCAMLGREP_VER\" ]; then
+        opam pin add \"ocamlgrep-lib.\$OCAMLGREP_VER\" '$REPO_ROOT/ocamlgrep' --no-action -y
+    else
+        opam pin add ocamlgrep-lib '$REPO_ROOT/ocamlgrep' --no-action -y
+    fi
+"
 
 # ── 5. Pin ocaml-lsp from submodule ───────────────────────────────────────────
 
-LSP_VER=$(git -C "$REPO_ROOT/ocaml-lsp" describe --tags --abbrev=0 \
-    2>/dev/null | sed 's/^v//') || true
-LSP_VER=$(opam info ocaml-lsp-server --field=all-versions 2>/dev/null \
-    | tr ' ' '\n' | sort -V | tail -1) 2>/dev/null || LSP_VER="${LSP_VER:-1.25.0}"
+step 5 bash -c "
+    LSP_VER=\$(opam info ocaml-lsp-server --field=all-versions 2>/dev/null \
+        | tr ' ' '\n' | sort -V | tail -1) || LSP_VER='1.25.0'
+    log \"Pinning ocaml-lsp packages at version \$LSP_VER...\"
+    opam pin add \"jsonrpc.\$LSP_VER\"          '$REPO_ROOT/ocaml-lsp' --no-action -y
+    opam pin add \"lsp.\$LSP_VER\"              '$REPO_ROOT/ocaml-lsp' --no-action -y
+    opam pin add \"ocaml-lsp-server.\$LSP_VER\" '$REPO_ROOT/ocaml-lsp' --no-action -y
+    git -C '$REPO_ROOT/ocaml-lsp' checkout -- . 2>/dev/null || true
+"
 
-log "Pinning ocaml-lsp packages at version $LSP_VER..."
-opam pin add "jsonrpc.$LSP_VER"          "$REPO_ROOT/ocaml-lsp" --no-action -y
-opam pin add "lsp.$LSP_VER"              "$REPO_ROOT/ocaml-lsp" --no-action -y
-opam pin add "ocaml-lsp-server.$LSP_VER" "$REPO_ROOT/ocaml-lsp" --no-action -y
+# ── 6. Install packages ────────────────────────────────────────────────────────
 
-git -C "$REPO_ROOT/ocaml-lsp" checkout -- . 2>/dev/null || true
+step 6 bash -c "
+    log 'Installing ocamlgrep-lib and ocaml-lsp-server...'
+    opam install ocamlgrep-lib ocaml-lsp-server 'dune.3.20.2' -y
+    eval \"\$(opam env)\"
+    log \"ocamllsp:      \$(ocamllsp --version)\"
+    log \"ocamlgrep-lib: \$(opam info ocamlgrep-lib --field=installed-version 2>/dev/null || echo unknown)\"
+"
 
-# ── 6. Install ocamlgrep-lib and ocaml-lsp-server ─────────────────────────────
-
-log "Installing ocamlgrep-lib and ocaml-lsp-server (this takes a while on first run)..."
-# dune >= 3.21 has a Chan API incompatible with our ocaml-lsp base commit
-# (838b58a6).  Constraining dune.3.20.2 is sufficient.
-opam install ocamlgrep-lib ocaml-lsp-server "dune.3.20.2" -y
 eval "$(opam env)"
-log "ocamllsp:      $(ocamllsp --version)"
-log "ocamlgrep-lib: $(opam info ocamlgrep-lib --field=installed-version 2>/dev/null || echo 'unknown')"
 
-# ── 8. Build the VSCode extension ─────────────────────────────────────────────
+# ── 7. Build the VSCode extension ─────────────────────────────────────────────
 
-log "Installing JS dependencies for vscode-ocaml-platform..."
-cd "$REPO_ROOT/vscode-ocaml-platform"
-bun install --frozen-lockfile
+step 7 bash -c "
+    log 'Installing JS dependencies for vscode-ocaml-platform...'
+    cd '$REPO_ROOT/vscode-ocaml-platform'
+    bun install --frozen-lockfile
 
-log "Installing OCaml dependencies for vscode-ocaml-platform..."
-opam install --deps-only --yes . 2>&1 | tail -5
+    log 'Installing OCaml dependencies for vscode-ocaml-platform...'
+    opam install --deps-only --yes . 2>&1 | tail -5
 
-# Install test/dev deps so 'dune describe workspace' succeeds in the demo
-# project; ocamlgrep runs that command at query time to enumerate source files.
-# ppx_inline_test and ppx_expect are needed by jsonrpc-fiber's test suite but
-# do not appear in any top-level opam file, so we install them explicitly.
-log "Installing ocaml-lsp test dependencies (needed by dune describe workspace)..."
-opam install --deps-only --with-test --yes "$REPO_ROOT/ocaml-lsp" 2>&1 | tail -5
-opam install ppx_inline_test ppx_expect -y 2>&1 | tail -5
+    log 'Installing ocaml-lsp test dependencies...'
+    opam install --deps-only --with-test --yes '$REPO_ROOT/ocaml-lsp' 2>&1 | tail -5
+    opam install ppx_inline_test ppx_expect -y 2>&1 | tail -5
 
-log "Building vscode-ocaml-platform extension..."
-cd "$REPO_ROOT/vscode-ocaml-platform"
-make build
+    log 'Building vscode-ocaml-platform extension...'
+    cd '$REPO_ROOT/vscode-ocaml-platform'
+    make build
 
-log "Packaging extension as .vsix..."
-make pkg
-# Extension installation requires the 'code' CLI which is only available after
-# VS Code attaches.  The devcontainer.json postAttachCommand handles this.
+    log 'Packaging extension as .vsix...'
+    make pkg
+"
 
-# ── 9. Build .cmt files for the demo project (ocaml-lsp submodule) ────────────
-#
-# We use the ocaml-lsp source tree as the demo project: it's already present,
-# already has its dependencies installed (step 6 above), and is a good-sized
-# real OCaml codebase.  'dune build @check' generates the .cmt files that
-# ocamlgrep needs to search over.
+# ── 8. Build .cmt files ────────────────────────────────────────────────────────
 
-log "Building .cmt files in demo project (ocaml-lsp)..."
-cd "$REPO_ROOT/ocaml-lsp"
-# @check type-checks every source file (including vendors) and writes .cmt
-# files that ocamlgrep reads at query time.  Test deps must be installed first.
-opam exec -- dune build @check 2>&1 | tail -10
+step 8 bash -c "
+    log 'Building .cmt files in demo project (ocaml-lsp)...'
+    cd '$REPO_ROOT/ocaml-lsp'
+    opam exec -- dune build @check 2>&1 | tail -10
+"
 
 # ── Done ──────────────────────────────────────────────────────────────────────
 
