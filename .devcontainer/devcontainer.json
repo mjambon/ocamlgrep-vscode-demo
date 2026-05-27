@@ -4,7 +4,10 @@
   // OCaml 5.4 + opam pre-installed.  The switch is named "5.4" in this image.
   "image": "ocaml/opam:ubuntu-24.04-ocaml-5.4",
 
-  "onCreateCommand": "sudo apt-get update -qq && sudo apt-get install -y -qq libev-dev pkg-config build-essential curl git && echo 'export PATH=\"$HOME/.bun/bin:$PATH\"' >> ~/.bashrc",
+  // opam 2.0.x (bundled in the image) is too old: the opam repository dropped
+  // compat with it and newer packages (merlin 5.7+) are only accessible via
+  // opam 2.1+.  Install the latest stable opam before anything else.
+  "onCreateCommand": "sudo apt-get update -qq && sudo apt-get install -y -qq libev-dev pkg-config build-essential curl git && curl -fsSL https://opam.ocaml.org/install.sh | sudo bash && echo 'export PATH=\"$HOME/.bun/bin:$PATH\"' >> ~/.bashrc",
 
   // Build everything (slow, runs once on container creation).
   "postCreateCommand": "bash /workspace/scripts/setup.sh 2>&1 | tee /tmp/setup.log",
