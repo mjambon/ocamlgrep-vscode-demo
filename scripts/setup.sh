@@ -18,130 +18,126 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-DEMO_PROJECT_DIR="$REPO_ROOT/demo-project"
 
 # ── Parse --from argument ──────────────────────────────────────────────────────
 
 START_FROM=1
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --from)
-            START_FROM="$2"; shift 2 ;;
-        --from=*)
-            START_FROM="${1#--from=}"; shift ;;
-        *)
-            echo "Unknown argument: $1" >&2; exit 1 ;;
+        --from)    START_FROM="$2"; shift 2 ;;
+        --from=*)  START_FROM="${1#--from=}"; shift ;;
+        *)         echo "Unknown argument: $1" >&2; exit 1 ;;
     esac
 done
 
 log() { echo ""; echo "==> $*"; }
 
-# step N: run the body only if N >= START_FROM
-step() {
-    local n="$1"; shift
+should_run_step() {
+    local n="$1"
     if [ "$n" -ge "$START_FROM" ]; then
-        "$@"
+        return 0  # true: run this step
     else
         log "Skipping step $n (--from $START_FROM)"
+        return 1  # false: skip
     fi
 }
 
-# ── 1. Opam environment ────────────────────────────────────────────────────────
+# ── Always: set up opam env and PATH so skipped steps don't break later ones ──
 
-step 1 bash -c '
-    unset OPAMSWITCH
-    eval "$(opam env)"
-    log "OCaml: $(ocaml --version)"
-'
-# Always set up PATH and opam env for subsequent steps, even when skipping.
 unset OPAMSWITCH
 eval "$(opam env)"
 export PATH="$HOME/.bun/bin:$PATH"
 
+# ── 1. Opam environment ────────────────────────────────────────────────────────
+
+if should_run_step 1; then
+    log "OCaml: $(ocaml --version)"
+fi
+
 # ── 2. Install bun ────────────────────────────────────────────────────────────
 
-step 2 bash -c '
-    export PATH="$HOME/.bun/bin:$PATH"
+if should_run_step 2; then
     if ! command -v bun &>/dev/null; then
         log "Installing bun..."
         curl -fsSL https://bun.sh/install | bash
     fi
     log "bun: $(bun --version)"
-'
+fi
 
 # ── 3. Refresh opam package index ─────────────────────────────────────────────
 
-step 3 bash -c '
+if should_run_step 3; then
     log "Updating opam package index..."
     opam update -y
-'
+fi
 
 # ── 4. Pin ocamlgrep-lib from submodule ───────────────────────────────────────
 
-step 4 bash -c "
-    OCAMLGREP_VER=\$(git -C '$REPO_ROOT/ocamlgrep' describe --tags --abbrev=0 \
+if should_run_step 4; then
+    OCAMLGREP_VER=$(git -C "$REPO_ROOT/ocamlgrep" describe --tags --abbrev=0 \
         2>/dev/null | sed 's/^v//') || true
-    log 'Pinning ocamlgrep-lib...'
-    if [ -n \"\$OCAMLGREP_VER\" ]; then
-        opam pin add \"ocamlgrep-lib.\$OCAMLGREP_VER\" '$REPO_ROOT/ocamlgrep' --no-action -y
+    log "Pinning ocamlgrep-lib..."
+    if [ -n "$OCAMLGREP_VER" ]; then
+        opam pin add "ocamlgrep-lib.$OCAMLGREP_VER" "$REPO_ROOT/ocamlgrep" --no-action -y
     else
-        opam pin add ocamlgrep-lib '$REPO_ROOT/ocamlgrep' --no-action -y
+        opam pin add ocamlgrep-lib "$REPO_ROOT/ocamlgrep" --no-action -y
     fi
-"
+fi
 
 # ── 5. Pin ocaml-lsp from submodule ───────────────────────────────────────────
 
-step 5 bash -c "
-    LSP_VER=\$(opam info ocaml-lsp-server --field=all-versions 2>/dev/null \
+if should_run_step 5; then
+    LSP_VER=$(opam info ocaml-lsp-server --field=all-versions 2>/dev/null \
         | tr ' ' '\n' | sort -V | tail -1) || LSP_VER='1.25.0'
-    log \"Pinning ocaml-lsp packages at version \$LSP_VER...\"
-    opam pin add \"jsonrpc.\$LSP_VER\"          '$REPO_ROOT/ocaml-lsp' --no-action -y
-    opam pin add \"lsp.\$LSP_VER\"              '$REPO_ROOT/ocaml-lsp' --no-action -y
-    opam pin add \"ocaml-lsp-server.\$LSP_VER\" '$REPO_ROOT/ocaml-lsp' --no-action -y
-    git -C '$REPO_ROOT/ocaml-lsp' checkout -- . 2>/dev/null || true
-"
+    log "Pinning ocaml-lsp packages at version $LSP_VER..."
+    opam pin add "jsonrpc.$LSP_VER"          "$REPO_ROOT/ocaml-lsp" --no-action -y
+    opam pin add "lsp.$LSP_VER"              "$REPO_ROOT/ocaml-lsp" --no-action -y
+    opam pin add "ocaml-lsp-server.$LSP_VER" "$REPO_ROOT/ocaml-lsp" --no-action -y
+    git -C "$REPO_ROOT/ocaml-lsp" checkout -- . 2>/dev/null || true
+fi
 
 # ── 6. Install packages ────────────────────────────────────────────────────────
 
-step 6 bash -c "
-    log 'Installing ocamlgrep-lib and ocaml-lsp-server...'
-    opam install ocamlgrep-lib ocaml-lsp-server 'dune.3.20.2' -y
-    eval \"\$(opam env)\"
-    log \"ocamllsp:      \$(ocamllsp --version)\"
-    log \"ocamlgrep-lib: \$(opam info ocamlgrep-lib --field=installed-version 2>/dev/null || echo unknown)\"
-"
+if should_run_step 6; then
+    log "Installing ocamlgrep-lib and ocaml-lsp-server (this takes a while)..."
+    # dune >= 3.21 has a Chan API incompatible with our ocaml-lsp base commit.
+    opam install ocamlgrep-lib ocaml-lsp-server "dune.3.20.2" -y
+    eval "$(opam env)"
+    log "ocamllsp:      $(ocamllsp --version)"
+    log "ocamlgrep-lib: $(opam info ocamlgrep-lib --field=installed-version 2>/dev/null || echo unknown)"
+fi
 
 eval "$(opam env)"
 
 # ── 7. Build the VSCode extension ─────────────────────────────────────────────
 
-step 7 bash -c "
-    log 'Installing JS dependencies for vscode-ocaml-platform...'
-    cd '$REPO_ROOT/vscode-ocaml-platform'
+if should_run_step 7; then
+    log "Installing JS dependencies for vscode-ocaml-platform..."
+    cd "$REPO_ROOT/vscode-ocaml-platform"
     bun install --frozen-lockfile
 
-    log 'Installing OCaml dependencies for vscode-ocaml-platform...'
+    log "Installing OCaml dependencies for vscode-ocaml-platform..."
     opam install --deps-only --yes . 2>&1 | tail -5
 
-    log 'Installing ocaml-lsp test dependencies...'
-    opam install --deps-only --with-test --yes '$REPO_ROOT/ocaml-lsp' 2>&1 | tail -5
+    log "Installing ocaml-lsp test dependencies (needed by dune describe workspace)..."
+    opam install --deps-only --with-test --yes "$REPO_ROOT/ocaml-lsp" 2>&1 | tail -5
     opam install ppx_inline_test ppx_expect -y 2>&1 | tail -5
 
-    log 'Building vscode-ocaml-platform extension...'
-    cd '$REPO_ROOT/vscode-ocaml-platform'
+    log "Building vscode-ocaml-platform extension..."
+    cd "$REPO_ROOT/vscode-ocaml-platform"
     make build
 
-    log 'Packaging extension as .vsix...'
+    log "Packaging extension as .vsix..."
     make pkg
-"
+fi
 
 # ── 8. Build .cmt files ────────────────────────────────────────────────────────
 
-step 8 bash -c "
-    log 'Building .cmt files in demo project (ocaml-lsp)...'
-    cd '$REPO_ROOT/ocaml-lsp'
+if should_run_step 8; then
+    log "Building .cmt files in demo project (ocaml-lsp)..."
+    cd "$REPO_ROOT/ocaml-lsp"
     opam exec -- dune build @check 2>&1 | tail -10
-"
+fi
 
 # ── Done ──────────────────────────────────────────────────────────────────────
 
