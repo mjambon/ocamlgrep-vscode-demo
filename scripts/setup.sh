@@ -102,9 +102,7 @@ fi
 
 if should_run_step 6; then
     log "Installing ocamlgrep-lib and ocaml-lsp-server (this takes a while)..."
-    # dune >= 3.21 has a Chan API incompatible with our ocaml-lsp base commit.
-    # merlin-lib 5.7.1-504 is in the registry; no custom pin needed.
-    opam install ocamlgrep-lib ocaml-lsp-server "dune.3.20.2" -y
+    opam install ocamlgrep-lib ocaml-lsp-server -y
     eval "$(opam env)"
     log "ocamllsp:      $(ocamllsp --version)"
     log "ocamlgrep-lib: $(opam info ocamlgrep-lib --field=installed-version 2>/dev/null || echo unknown)"
