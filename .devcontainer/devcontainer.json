@@ -2,16 +2,11 @@
   "name": "ocamlgrep VSCode Demo",
 
   // OCaml 5.4 + opam pre-installed.  The switch is named "5.4" in this image.
-  "image": "ocaml/opam:ubuntu-24.04-ocaml-5.4",
+  // Alpine ships with a recent opam (2.1+) already pointed at the live opam
+  // repository, so no opam upgrade or repo-switching is needed.
+  "image": "ocaml/opam:alpine-ocaml-5.4",
 
-  // opam 2.0.x (bundled in the image) is too old: the opam repository dropped
-  // compat with it and newer packages (merlin 5.7+) are only accessible via
-  // opam 2.1+.  Install the latest stable opam before anything else.
-  // The Docker image ships opam 2.0.x pointed at a frozen local git clone of
-  // the opam-repository (good for reproducible builds, bad for finding new
-  // packages).  We fix both: upgrade opam to 2.1+ and point the default repo
-  // at the live remote so 'opam update' fetches current package metadata.
-  "onCreateCommand": "sudo apt-get update -qq && sudo apt-get install -y -qq libev-dev pkg-config build-essential curl git && curl -fsSL https://opam.ocaml.org/install.sh | sudo bash && opam repo remove default --all 2>/dev/null || true && chmod -R u+w ~/.opam/repo/default 2>/dev/null || true && rm -rf ~/.opam/repo/default && opam repo add default https://opam.ocaml.org --kind http && echo 'export PATH=\"$HOME/.bun/bin:$PATH\"' >> ~/.bashrc",
+  "onCreateCommand": "sudo apk add --no-cache libev-dev pkgconfig build-base curl git bash && echo 'eval $(opam env)' >> ~/.bashrc && echo 'export PATH=\"$HOME/.bun/bin:$PATH\"' >> ~/.bashrc",
 
   // Build everything (slow, runs once on container creation).
   "postCreateCommand": "bash /workspace/scripts/setup.sh 2>&1 | tee /tmp/setup.log",
@@ -33,6 +28,12 @@
         }
       }
     }
+  },
+
+  // Expose the opam switch bin dir to the VS Code server process (and thus the
+  // OCaml extension) without relying on shell init files being sourced.
+  "remoteEnv": {
+    "PATH": "/home/opam/.opam/5.4/bin:${containerEnv:PATH}"
   },
 
   "workspaceFolder": "/workspace",

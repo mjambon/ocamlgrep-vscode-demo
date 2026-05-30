@@ -8,7 +8,7 @@
 #           partial failure).  Steps:
 #   1  opam environment
 #   2  bun
-#   3  opam update          (slow, safe to skip on re-runs)
+#   3  opam update           (slow, safe to skip on re-runs)
 #   4  pin ocamlgrep-lib
 #   5  pin ocaml-lsp
 #   6  install packages     (slow)
@@ -67,12 +67,9 @@ fi
 # ── 3. Refresh opam package index ─────────────────────────────────────────────
 
 if should_run_step 3; then
-    log "Switching opam repo from local git clone to live HTTP server..."
-    opam repo remove default --all 2>/dev/null || true
-    chmod -R u+w ~/.opam/repo/default 2>/dev/null || true
-    rm -rf ~/.opam/repo/default
-    opam repo add default https://opam.ocaml.org --kind http
     log "Updating opam package index..."
+    opam repo remove default --all
+    opam repo add default https://opam.ocaml.org
     opam update -y
 fi
 
