@@ -69,6 +69,7 @@ fi
 if should_run_step 3; then
     log "Switching opam repo from local git clone to live HTTP server..."
     opam repo remove default --all 2>/dev/null || true
+    chmod -R u+w ~/.opam/repo/default 2>/dev/null || true
     rm -rf ~/.opam/repo/default
     opam repo add default https://opam.ocaml.org --kind http
     log "Updating opam package index..."
