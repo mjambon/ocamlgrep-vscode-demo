@@ -67,8 +67,9 @@ fi
 # ── 3. Refresh opam package index ─────────────────────────────────────────────
 
 if should_run_step 3; then
-    log "Pointing opam at the live package server..."
-    opam repo set-url default https://opam.ocaml.org
+    log "Switching opam repo from local git clone to live HTTP server..."
+    opam repo remove default --all 2>/dev/null || true
+    opam repo add default https://opam.ocaml.org
     log "Updating opam package index..."
     opam update -y
 fi
