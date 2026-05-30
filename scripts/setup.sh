@@ -67,6 +67,8 @@ fi
 # ── 3. Refresh opam package index ─────────────────────────────────────────────
 
 if should_run_step 3; then
+    log "Pointing opam at the live package server..."
+    opam repo set-url default https://opam.ocaml.org
     log "Updating opam package index..."
     opam update -y
 fi
