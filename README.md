@@ -107,23 +107,24 @@ Then open VS Code on `/workspace/ocaml-lsp`.
 
 ## How It Works
 
-The integration spans three repositories (included as submodules on the
-`ocamlgrep` branch):
+The integration spans three repositories (included as submodules):
 
 ```
-vscode-ocaml-platform  →  ocaml-lsp  →  merlin
-(VS Code extension)       (LSP server)   (analysis)
+vscode-ocaml-platform  →  ocaml-lsp  →  ocamlgrep-lib
+(VS Code extension)       (LSP server)   (pattern matching)
 ```
 
-1. **merlin** (`ocamlgrep` branch): Implements `Expr_search` — the pattern
-   parser and typed-AST matcher.  Exposed as the `ocamlmerlin single ocamlgrep`
-   subcommand.
+1. **ocamlgrep-lib** (`lsponly` branch): The standalone pattern-matching
+   library.  Walks `.cmt` files produced by `dune build @check`, parses the
+   query as an OCaml expression, and matches it against every typed sub-expression
+   in the project.
 
-2. **ocaml-lsp** (`ocamlgrep` branch): Adds `req_ocamlgrep.ml`, a custom LSP
-   request handler for method `ocamllsp/ocamlgrep`.  Accepts `{textDocument, query}`
-   and returns `{findings: [{uri, range, lines}], warnings: []}`.
+2. **ocaml-lsp** (`lsponly` branch): Adds `req_ocamlgrep.ml`, a custom LSP
+   request handler for method `ocamllsp/ocamlgrep`.  Accepts `{query}`, calls
+   `ocamlgrep-lib` for each workspace folder, and returns
+   `{findings: [{uri, range, lines}], warnings: [], errors: []}`.
 
-3. **vscode-ocaml-platform** (`ocamlgrep` branch): Adds the `ocaml.ocamlgrep`
+3. **vscode-ocaml-platform** (`lsponly` branch): Adds the `ocaml.ocamlgrep`
    VS Code command with an InputBox → QuickPick UI.
 
 See [NOTES.md](NOTES.md) for detailed technical notes.
@@ -136,9 +137,9 @@ See [NOTES.md](NOTES.md) for detailed technical notes.
 ocamlgrep-vscode-demo/
 ├── README.md                   ← this file
 ├── NOTES.md                    ← technical notes (architecture, gotchas, TODOs)
-├── merlin/                     ← submodule (ocamlgrep branch)
-├── ocaml-lsp/                  ← submodule (ocamlgrep branch)
-├── vscode-ocaml-platform/      ← submodule (ocamlgrep branch)
+├── ocamlgrep/                  ← submodule (lsponly branch)
+├── ocaml-lsp/                  ← submodule (lsponly branch)
+├── vscode-ocaml-platform/      ← submodule (lsponly branch)
 ├── web/                        ← demo video
 ├── scripts/
 │   └── setup.sh                ← builds everything and installs the extension
