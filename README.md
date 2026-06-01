@@ -114,7 +114,7 @@ vscode-ocaml-platform  →  ocaml-lsp  →  ocamlgrep-lib
 (VS Code extension)       (LSP server)   (pattern matching)
 ```
 
-1. **ocamlgrep-lib** (`lsponly` branch): The standalone pattern-matching
+1. **ocamlgrep-lib** (`main` branch): The standalone pattern-matching
    library.  Walks `.cmt` files produced by `dune build @check`, parses the
    query as an OCaml expression, and matches it against every typed sub-expression
    in the project.
@@ -137,7 +137,7 @@ See [NOTES.md](NOTES.md) for detailed technical notes.
 ocamlgrep-vscode-demo/
 ├── README.md                   ← this file
 ├── NOTES.md                    ← technical notes (architecture, gotchas, TODOs)
-├── ocamlgrep/                  ← submodule (lsponly branch)
+├── ocamlgrep/                  ← submodule (main branch)
 ├── ocaml-lsp/                  ← submodule (lsponly branch)
 ├── vscode-ocaml-platform/      ← submodule (lsponly branch)
 ├── web/                        ← demo video
