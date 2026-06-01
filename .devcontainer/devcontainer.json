@@ -6,7 +6,7 @@
   // repository, so no opam upgrade or repo-switching is needed.
   "image": "ocaml/opam:alpine-ocaml-5.4",
 
-  "onCreateCommand": "sudo apk add --no-cache libev-dev pkgconfig build-base curl git bash && echo 'eval $(opam env)' >> ~/.bashrc && echo 'export PATH=\"$HOME/.bun/bin:$PATH\"' >> ~/.bashrc",
+  "onCreateCommand": "sudo apk add --no-cache libev-dev pkgconfig build-base curl git bash gcompat && echo 'eval $(opam env)' >> ~/.bashrc && echo 'export PATH=\"$HOME/.bun/bin:$PATH\"' >> ~/.bashrc",
 
   // Build everything (slow, runs once on container creation).
   "postCreateCommand": "bash /workspace/scripts/setup.sh 2>&1 | tee /tmp/setup.log",

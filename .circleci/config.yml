@@ -16,7 +16,7 @@ jobs:
           name: Install system dependencies
           command: >
             sudo apk add --no-cache
-            libev-dev pkgconfig build-base curl git bash
+            libev-dev pkgconfig build-base curl git bash gcompat
 
       # ── Source checkout ─────────────────────────────────────────────────────
       - checkout
