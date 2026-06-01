@@ -1,163 +1,144 @@
 #!/usr/bin/env bash
-# setup.sh — Builds merlin, ocaml-lsp, and the VSCode extension from the
-# submodules, then clones and builds the Dune repo as the demo project.
+# setup.sh — Builds ocamlgrep-lib, ocaml-lsp, and the VSCode extension.
 #
-# Expected to run inside the devcontainer (or any system with opam and a
-# recent OCaml switch).  Safe to re-run; most steps are idempotent.
+# Usage:
+#   bash scripts/setup.sh [--from N]
+#
+# --from N  Skip all steps before step N (useful when re-running after a
+#           partial failure).  Steps:
+#   1  opam environment
+#   2  bun
+#   3  opam update          (slow, safe to skip on re-runs)
+#   4  pin ocamlgrep-lib
+#   5  pin ocaml-lsp
+#   6  install packages     (slow)
+#   7  build vscode extension
+#   8  build .cmt files     (slow)
 
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-DEMO_PROJECT_DIR="$REPO_ROOT/demo-project"
+
+# ── Parse --from argument ──────────────────────────────────────────────────────
+
+START_FROM=1
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --from)    START_FROM="$2"; shift 2 ;;
+        --from=*)  START_FROM="${1#--from=}"; shift ;;
+        *)         echo "Unknown argument: $1" >&2; exit 1 ;;
+    esac
+done
 
 log() { echo ""; echo "==> $*"; }
 
-# ── 1. Opam environment ────────────────────────────────────────────────────────
+should_run_step() {
+    local n="$1"
+    if [ "$n" -ge "$START_FROM" ]; then
+        return 0  # true: run this step
+    else
+        log "Skipping step $n (--from $START_FROM)"
+        return 1  # false: skip
+    fi
+}
 
-# Unset OPAMSWITCH so opam uses whatever switch exists in this image,
-# then let 'opam env' set the right values.
+# ── Always: set up opam env and PATH so skipped steps don't break later ones ──
+
 unset OPAMSWITCH
 eval "$(opam env)"
-log "OCaml: $(ocaml --version)"
-
-# ── 2. Install bun (fast JS runtime / bundler) ────────────────────────────────
-
-# Always extend PATH with the bun install location so re-runs find it without
-# needing a fresh shell (bun's installer exports this but doesn't persist it).
 export PATH="$HOME/.bun/bin:$PATH"
 
-if ! command -v bun &>/dev/null; then
-    log "Installing bun..."
-    curl -fsSL https://bun.sh/install | bash
+# ── 1. Opam environment ────────────────────────────────────────────────────────
+
+if should_run_step 1; then
+    log "OCaml: $(ocaml --version)"
 fi
-log "bun: $(bun --version)"
+
+# ── 2. Install bun ────────────────────────────────────────────────────────────
+
+if should_run_step 2; then
+    if ! command -v bun &>/dev/null; then
+        log "Installing bun..."
+        curl -fsSL https://bun.sh/install | bash
+    fi
+    log "bun: $(bun --version)"
+fi
 
 # ── 3. Refresh opam package index ─────────────────────────────────────────────
 
-log "Updating opam package index..."
-opam update -y
+if should_run_step 3; then
+    log "Updating opam package index..."
+    opam update -y
+fi
 
-# ── 4. (dune version is constrained at install time; see step 7) ──────────────
-#
-# dune >= 3.21 has a Chan API (write without option, close) incompatible with
-# the ocaml-lsp code at our base commit (838b58a6).  We constrain the whole
-# dune family to 3.20.2 by passing explicit version arguments to opam install.
+# ── 4. Pin ocamlgrep-lib from submodule ───────────────────────────────────────
+# merlin-lib is available in the opam registry at 5.7.1-504 — no pin needed.
 
-# ── 5. Pin merlin from submodule ───────────────────────────────────────────────
-#
-# merlin.opam declares "merlin-lib" {= version}, so all packages must be pinned
-# at the same version string.  We read the version that opam would infer for
-# 'merlin' and then explicitly pass the same string to every other pin in the
-# repo.  If git describe fails (no tags in the submodule clone), we fall back to
-# the latest version in the opam repository.
-
-# fetch_tags_if_missing REPO_DIR UPSTREAM_URL
-# Fetches tags from the upstream if the submodule clone has none.
-# Writes progress to stderr so it doesn't pollute command-substitution output.
-fetch_tags_if_missing() {
-    local dir="$1" upstream="$2"
-    if ! git -C "$dir" describe --tags --abbrev=0 &>/dev/null; then
-        echo "  No tags in $(basename "$dir") submodule — fetching from upstream..." >&2
-        git -C "$dir" remote add upstream "$upstream" 2>/dev/null || true
-        git -C "$dir" fetch --tags upstream 2>&1 | tail -3 >&2 || true
+if should_run_step 4; then
+    OCAMLGREP_VER=$(git -C "$REPO_ROOT/ocamlgrep" describe --tags --abbrev=0 \
+        2>/dev/null | sed 's/^v//') || true
+    log "Pinning ocamlgrep-lib..."
+    if [ -n "$OCAMLGREP_VER" ]; then
+        opam pin add "ocamlgrep-lib.$OCAMLGREP_VER" "$REPO_ROOT/ocamlgrep" --no-action -y
+    else
+        opam pin add ocamlgrep-lib "$REPO_ROOT/ocamlgrep" --no-action -y
     fi
-}
+fi
 
-# infer_version REPO_DIR PACKAGE_NAME
-# Prints the version string opam should use for a pin; falls back to the latest
-# opam-registry version for PACKAGE_NAME if git describe still finds nothing.
-infer_version() {
-    local dir="$1" pkg="$2"
-    local ver
-    ver=$(git -C "$dir" describe --tags --abbrev=0 2>/dev/null | sed 's/^v//') || true
-    if [ -z "$ver" ]; then
-        ver=$(opam info "$pkg" --field=all-versions 2>/dev/null \
-                | tr ' ' '\n' | sort -V | tail -1) || true
-    fi
-    echo "${ver:-dev}"
-}
+# ── 5. Pin ocaml-lsp from submodule ───────────────────────────────────────────
 
-fetch_tags_if_missing "$REPO_ROOT/merlin"    https://github.com/ocaml/merlin.git
-fetch_tags_if_missing "$REPO_ROOT/ocaml-lsp" https://github.com/ocaml/ocaml-lsp.git
+if should_run_step 5; then
+    # Use the version from the local repo's git tag, not the registry's latest.
+    LSP_VER=$(git -C "$REPO_ROOT/ocaml-lsp" describe --tags --abbrev=0 \
+        2>/dev/null | sed 's/^v//') || LSP_VER='1.25.0'
+    log "Pinning ocaml-lsp packages at version $LSP_VER..."
+    opam pin add "jsonrpc.$LSP_VER"          "$REPO_ROOT/ocaml-lsp" --no-action -y
+    opam pin add "lsp.$LSP_VER"              "$REPO_ROOT/ocaml-lsp" --no-action -y
+    opam pin add "ocaml-lsp-server.$LSP_VER" "$REPO_ROOT/ocaml-lsp" --no-action -y
+    git -C "$REPO_ROOT/ocaml-lsp" checkout -- . 2>/dev/null || true
+fi
 
-MERLIN_VER=$(infer_version "$REPO_ROOT/merlin"    merlin)
-LSP_VER=$(infer_version    "$REPO_ROOT/ocaml-lsp" ocaml-lsp-server)
+# ── 6. Install packages ────────────────────────────────────────────────────────
 
-log "Pinning merlin packages at version $MERLIN_VER..."
-# opam pin add syntax for an explicit version is PACKAGE.VERSION TARGET
-opam pin add "merlin.$MERLIN_VER"            "$REPO_ROOT/merlin" --no-action -y
-opam pin add "merlin-lib.$MERLIN_VER"        "$REPO_ROOT/merlin" --no-action -y
-opam pin add "dot-merlin-reader.$MERLIN_VER" "$REPO_ROOT/merlin" --no-action -y
-opam pin add "ocaml-index.$MERLIN_VER"       "$REPO_ROOT/merlin" --no-action -y \
-    2>/dev/null || true
+if should_run_step 6; then
+    log "Installing ocamlgrep-lib and ocaml-lsp-server (this takes a while)..."
+    opam install ocamlgrep-lib ocaml-lsp-server -y
+    eval "$(opam env)"
+    log "ocamllsp:      $(ocamllsp --version)"
+    log "ocamlgrep-lib: $(opam info ocamlgrep-lib --field=installed-version 2>/dev/null || echo unknown)"
+fi
 
-# ── 6. Pin ocaml-lsp from submodule ───────────────────────────────────────────
-
-log "Pinning ocaml-lsp packages at version $LSP_VER..."
-opam pin add "jsonrpc.$LSP_VER"          "$REPO_ROOT/ocaml-lsp" --no-action -y
-opam pin add "lsp.$LSP_VER"              "$REPO_ROOT/ocaml-lsp" --no-action -y
-opam pin add "ocaml-lsp-server.$LSP_VER" "$REPO_ROOT/ocaml-lsp" --no-action -y
-
-# opam may modify opam files in the pin source working tree during processing;
-# restore them so the submodule stays clean.
-git -C "$REPO_ROOT/ocaml-lsp" checkout -- . 2>/dev/null || true
-
-# ocaml-lsp-server.opam upstream contains pin-depends that re-pin merlin-lib
-# from GitHub main; our fork removes those, but re-assert our local pins here
-# as a safety valve in case they were overridden.
-opam pin add "merlin-lib.$MERLIN_VER"  "$REPO_ROOT/merlin" --no-action -y
-opam pin add "ocaml-index.$MERLIN_VER" "$REPO_ROOT/merlin" --no-action -y
-
-# ── 7. Install merlin and ocaml-lsp (provides ocamlmerlin + ocamllsp) ─────────
-
-log "Installing merlin and ocaml-lsp-server (this takes a while on first run)..."
-# dune >= 3.21 has a Chan API incompatible with our ocaml-lsp base commit
-# (838b58a6).  Constraining dune.3.20.2 is sufficient: opam will pick
-# compatible versions of all other dune sub-packages automatically.
-opam install merlin ocaml-lsp-server "dune.3.20.2" -y \
-    --ignore-constraints-on merlin-lib,dot-merlin-reader,ocaml-index
 eval "$(opam env)"
-log "ocamllsp:     $(ocamllsp --version)"
-log "merlin:       $(opam info merlin --field=installed-version 2>/dev/null || echo 'unknown')"
 
-# ── 8. Build the VSCode extension ─────────────────────────────────────────────
+# ── 7. Build the VSCode extension ─────────────────────────────────────────────
 
-log "Installing JS dependencies for vscode-ocaml-platform..."
-cd "$REPO_ROOT/vscode-ocaml-platform"
-bun install --frozen-lockfile
+if should_run_step 7; then
+    log "Installing JS dependencies for vscode-ocaml-platform..."
+    cd "$REPO_ROOT/vscode-ocaml-platform"
+    bun install --frozen-lockfile
 
-log "Installing OCaml dependencies for vscode-ocaml-platform..."
-opam install --deps-only --yes . 2>&1 | tail -5
+    log "Installing OCaml dependencies for vscode-ocaml-platform..."
+    opam install --deps-only --yes . 2>&1 | tail -5
 
-# Install test/dev deps so 'dune describe workspace' succeeds in the demo
-# project; ocamlgrep runs that command at query time to enumerate source files.
-# ppx_inline_test and ppx_expect are needed by jsonrpc-fiber's test suite but
-# do not appear in any top-level opam file, so we install them explicitly.
-log "Installing ocaml-lsp test dependencies (needed by dune describe workspace)..."
-opam install --deps-only --with-test --yes "$REPO_ROOT/ocaml-lsp" 2>&1 | tail -5
-opam install ppx_inline_test ppx_expect -y 2>&1 | tail -5
+    log "Installing ocaml-lsp test dependencies (needed by dune describe workspace)..."
+    opam install --deps-only --with-test --yes "$REPO_ROOT/ocaml-lsp" 2>&1 | tail -5
+    opam install ppx_inline_test ppx_expect -y 2>&1 | tail -5
 
-log "Building vscode-ocaml-platform extension..."
-cd "$REPO_ROOT/vscode-ocaml-platform"
-make build
+    log "Building vscode-ocaml-platform extension..."
+    cd "$REPO_ROOT/vscode-ocaml-platform"
+    make build
 
-log "Packaging extension as .vsix..."
-make pkg
-# Extension installation requires the 'code' CLI which is only available after
-# VS Code attaches.  The devcontainer.json postAttachCommand handles this.
+    log "Packaging extension as .vsix..."
+    make pkg
+fi
 
-# ── 9. Build .cmt files for the demo project (ocaml-lsp submodule) ────────────
-#
-# We use the ocaml-lsp source tree as the demo project: it's already present,
-# already has its dependencies installed (step 6 above), and is a good-sized
-# real OCaml codebase.  'dune build @check' generates the .cmt files that
-# ocamlgrep needs to search over.
+# ── 8. Build .cmt files ────────────────────────────────────────────────────────
 
-log "Building .cmt files in demo project (ocaml-lsp)..."
-cd "$REPO_ROOT/ocaml-lsp"
-# @check type-checks every source file (including vendors) and writes .cmt
-# files that ocamlgrep reads at query time.  Test deps must be installed first.
-opam exec -- dune build @check 2>&1 | tail -10
+if should_run_step 8; then
+    log "Building .cmt files in demo project (ocaml-lsp)..."
+    cd "$REPO_ROOT/ocaml-lsp"
+    opam exec -- dune build @check 2>&1 | tail -10
+fi
 
 # ── Done ──────────────────────────────────────────────────────────────────────
 
