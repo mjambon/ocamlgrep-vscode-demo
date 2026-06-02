@@ -8,7 +8,7 @@
 #           partial failure).  Steps:
 #   1  opam environment
 #   2  bun
-#   3  opam update          (slow, safe to skip on re-runs)
+#   3  opam update           (slow, safe to skip on re-runs)
 #   4  pin ocamlgrep-lib
 #   5  pin ocaml-lsp
 #   6  install packages     (slow)
@@ -68,6 +68,8 @@ fi
 
 if should_run_step 3; then
     log "Updating opam package index..."
+    opam repo remove default --all
+    opam repo add default https://opam.ocaml.org
     opam update -y
 fi
 

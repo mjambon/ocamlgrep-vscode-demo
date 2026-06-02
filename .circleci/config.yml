@@ -3,7 +3,7 @@ version: 2.1
 jobs:
   build:
     docker:
-      - image: ocaml/opam:ubuntu-24.04-ocaml-5.4
+      - image: ocaml/opam:alpine-ocaml-5.4
     resource_class: large        # 4 vCPU / 8 GB — OCaml compilation is heavy
     environment:
       OPAMSWITCH: "5.4"
@@ -15,9 +15,8 @@ jobs:
       - run:
           name: Install system dependencies
           command: >
-            sudo apt-get update -qq &&
-            sudo apt-get install -y -qq
-            libev-dev pkg-config build-essential curl git
+            sudo apk add --no-cache
+            libev-dev pkgconfig build-base curl git bash gcompat
 
       # ── Source checkout ─────────────────────────────────────────────────────
       - checkout
@@ -43,24 +42,28 @@ jobs:
 
       # ── opam package cache ───────────────────────────────────────────────────
       # Key includes the submodule commit SHAs so the cache is invalidated when
-      # merlin or ocaml-lsp changes.
+      # ocamlgrep or ocaml-lsp changes.
       - restore_cache:
           keys:
-            - opam-v3-{{ checksum ".git/modules/merlin/HEAD" }}-{{ checksum ".git/modules/ocaml-lsp/HEAD" }}
-            - opam-v3-
+            - opam-v4-{{ checksum ".git/modules/ocamlgrep/HEAD" }}-{{ checksum ".git/modules/ocaml-lsp/HEAD" }}
+            - opam-v4-
 
       # ── Build ────────────────────────────────────────────────────────────────
       - run:
           name: Update opam index
-          command: unset OPAMSWITCH && eval "$(opam env)" && opam update -y
+          command: |
+            unset OPAMSWITCH && eval "$(opam env)"
+            opam repo remove default --all
+            opam repo add default https://opam.ocaml.org
+            opam update -y
 
       - run:
-          name: Pin and install merlin + ocaml-lsp-server
-          command: bash scripts/setup.sh
+          name: Pin and install ocamlgrep-lib + ocaml-lsp-server
+          command: bash scripts/setup.sh --from 4
           no_output_timeout: 30m
 
       - save_cache:
-          key: opam-v3-{{ checksum ".git/modules/merlin/HEAD" }}-{{ checksum ".git/modules/ocaml-lsp/HEAD" }}
+          key: opam-v4-{{ checksum ".git/modules/ocamlgrep/HEAD" }}-{{ checksum ".git/modules/ocaml-lsp/HEAD" }}
           paths:
             - ~/.opam
 
@@ -69,8 +72,8 @@ jobs:
           name: Verify installed binaries
           command: |
             eval "$(opam env)"
-            echo "ocamllsp: $(ocamllsp --version)"
-            echo "merlin:   $(opam info merlin --field=installed-version)"
+            echo "ocamllsp:      $(ocamllsp --version)"
+            echo "ocamlgrep-lib: $(opam info ocamlgrep-lib --field=installed-version)"
 
       # ── Publish .vsix as a build artifact ───────────────────────────────────
       - store_artifacts:
